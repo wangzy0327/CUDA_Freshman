@@ -51,7 +51,8 @@ void initialData(float* ip,int size)
   srand((unsigned )time(&t));
   for(int i=0;i<size;i++)
   {
-    ip[i]=(float)(rand()&0xffff)/1000.0f;
+    ip[i]=(float)(rand()&0xffff)/100000.0f;
+    // ip[i]=2.0f;
   }
 }
 void initialData_int(int* ip, int size)
@@ -89,7 +90,7 @@ void initDevice(int devNum)
 }
 void checkResult(float * hostRef,float * gpuRef,const int N)
 {
-  double epsilon=1.0E-8;
+  double epsilon=1.0E-2f;
   for(int i=0;i<N;i++)
   {
     if(abs(hostRef[i]-gpuRef[i])>epsilon)

@@ -34,6 +34,38 @@ __global__ void setColReadCol(int * out)
     __syncthreads();
     out[idx]=tile[threadIdx.x][threadIdx.y];
 }
+__global__ void setRowReadRow_64(double * out)
+{
+    __shared__ double tile[BDIMY][BDIMX];
+    unsigned int idx=threadIdx.y*blockDim.x+threadIdx.x;
+
+    tile[threadIdx.y][threadIdx.x]=idx;
+    __syncthreads();
+    out[idx]=tile[threadIdx.y][threadIdx.x];
+}
+__global__ void setColReadCol_64(double * out)
+{
+    __shared__ double tile[BDIMY][BDIMX];
+    unsigned int idx=threadIdx.y*blockDim.x+threadIdx.x;
+
+    tile[threadIdx.x][threadIdx.y]=idx;
+    __syncthreads();
+    out[idx]=tile[threadIdx.x][threadIdx.y];
+}
+__global__ void setRowReadColDyn_2(int * out1, int * out2)
+{
+    extern __shared__ int tile1[];
+    extern __shared__ int tile2[];
+    unsigned int idx=threadIdx.y*blockDim.x+threadIdx.x;
+    unsigned int row_idx = threadIdx.y*blockDim.x+threadIdx.x;
+    unsigned int col_idx = threadIdx.x*blockDim.y+threadIdx.y;
+
+    tile1[row_idx]=idx;
+    tile2[row_idx]=idx;
+    __syncthreads();
+    out1[row_idx]=tile1[col_idx];
+    out2[row_idx]=tile2[col_idx];
+}
 __global__ void setColReadRow(int * out)
 {
     __shared__ int tile[BDIMY][BDIMX];
@@ -133,10 +165,20 @@ int main(int argc,char **argv)
   int nElem=BDIMX*BDIMY;
   printf("Vector size:%d\n",nElem);
   int nByte=sizeof(int)*nElem;
+  int nByte1=sizeof(double)*nElem;
   int * out;
+  double * out1;
+  int * out2;
+  int * out3;
   CHECK(cudaMalloc((int**)&out,nByte));
-  cudaSharedMemConfig MemConfig;
-  CHECK(cudaDeviceGetSharedMemConfig(&MemConfig));
+  CHECK(cudaMalloc((int**)&out2,nByte));
+  CHECK(cudaMalloc((int**)&out3,nByte));
+  CHECK(cudaMalloc((double**)&out1,nByte1));
+  cudaSharedMemConfig MemConfig = cudaSharedMemBankSizeFourByte;
+  if(kernel == 64)
+    MemConfig = cudaSharedMemBankSizeEightByte;
+  CHECK(cudaDeviceSetSharedMemConfig(MemConfig));
+//   CHECK(cudaDeviceGetSharedMemConfig(&MemConfig));
   printf("--------------------------------------------\n");
   switch (MemConfig) {
 
@@ -175,6 +217,32 @@ int main(int argc,char **argv)
           printf("setColReadCol  ");
           printf("Execution Time elapsed %f sec\n",iElaps);
           break;
+        }
+      case 64:
+          {
+          setRowReadRow_64<<<grid,block>>>(out1);
+          cudaDeviceSynchronize();
+          iElaps=cpuSecond()-iStart;
+          printf("setRowReadRow  double");
+          printf("Execution Time elapsed %f sec\n",iElaps);
+      //break;
+      //case 1:
+          iStart=cpuSecond();
+          setColReadCol_64<<<grid,block>>>(out1);
+          cudaDeviceSynchronize();
+          iElaps=cpuSecond()-iStart;
+          printf("setColReadCol  double");
+          printf("Execution Time elapsed %f sec\n",iElaps);
+          break;
+        }   
+      case 16:
+        {
+            setRowReadColDyn_2<<<grid,block,2*(BDIMX)*BDIMY*sizeof(int)>>>(out2,out3);
+            cudaDeviceSynchronize();
+            iElaps=cpuSecond()-iStart;
+            printf("setRowReadColDyn2  ");
+            printf("Execution Time elapsed %f sec\n",iElaps);
+            break;
         }
       case 2:
         {
@@ -293,5 +361,8 @@ int main(int argc,char **argv)
   }
 
   cudaFree(out);
+  cudaFree(out1);
+  cudaFree(out2);
+  cudaFree(out3);
   return 0;
 }

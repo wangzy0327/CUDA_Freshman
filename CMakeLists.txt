@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.9 FATAL_ERROR)
 Project(CUDA_Freshman CXX C CUDA)
-set(CMAKE_CUDA_FLAGS "-arch=compute_35 -g -G -O3")
+# set(CMAKE_CUDA_ARCHITECTURES "70")
+set(CMAKE_CUDA_FLAGS "-arch=compute_35 -code=compute_35,sm_70  -O3")
+# -g -G 启用了调试信息，严重影响性能(通常降低10倍以上，测试性能时建议关掉)
+# set(CMAKE_CUDA_FLAGS "-arch=compute_35 -code=compute_35,sm_70 -g -G  -O3")
+# 查找 CUDA 工具包，包括 cuBLAS
+find_package(CUDA REQUIRED)
+# 查找 cuBLAS 库
+find_library(CUBLAS_LIBRARY cublas
+    PATHS ${CUDA_TOOLKIT_ROOT_DIR}
+    PATH_SUFFIXES lib lib64
+    REQUIRED)
+
 include_directories(./include)
 add_subdirectory(0_hello_world)
 add_subdirectory(1_check_dimension)
@@ -39,3 +50,4 @@ add_subdirectory(35_multi_add_depth)
 add_subdirectory(36_multi_add_breadth)
 add_subdirectory(37_asyncAPI)
 add_subdirectory(38_stream_call_back)
+add_subdirectory(39_sgemm)

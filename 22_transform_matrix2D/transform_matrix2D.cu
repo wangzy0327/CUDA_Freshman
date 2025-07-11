@@ -113,7 +113,7 @@ __global__ void transformNaiveColDiagonal(float * MatA,float * MatB,int nx,int n
 
 int main(int argc,char** argv)
 {
-  printf("strating...\n");
+  printf("starting...\n");
   initDevice(0);
   int nx=1<<12;
   int ny=1<<12;
@@ -158,7 +158,11 @@ int main(int argc,char** argv)
   dim3 grid((nx-1)/block.x+1,(ny-1)/block.y+1);
   dim3 block_1(dimx,dimy);
   dim3 grid_1((nx-1)/(block_1.x*4)+1,(ny-1)/block_1.y+1);
-  iStart=cpuSecond();
+  // iStart=cpuSecond();
+  cudaEvent_t start, stop;
+  CHECK(cudaEventCreate(&start));
+  CHECK(cudaEventCreate(&stop));
+  CHECK(cudaEventRecord(start));
   switch(transform_kernel)
   {
   case 0:
@@ -189,9 +193,14 @@ int main(int argc,char** argv)
   default:
     break;
   }
-  CHECK(cudaDeviceSynchronize());
-  iElaps=cpuSecond()-iStart;
-  printf(" Time elapsed %f sec\n",iElaps);
+  // CHECK(cudaDeviceSynchronize());
+  // iElaps=cpuSecond()-iStart;
+  CHECK(cudaEventRecord(stop));
+  CHECK(cudaEventSynchronize(stop));
+  float milliseconds = 0;
+  CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
+  milliseconds = (double)milliseconds*1e-3;
+  printf(" Time elapsed %f sec\n",milliseconds);
   CHECK(cudaMemcpy(B_host,B_dev,nBytes,cudaMemcpyDeviceToHost));
   checkResult(B_host,B_host,nxy);
 

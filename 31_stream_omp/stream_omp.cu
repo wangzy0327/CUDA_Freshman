@@ -41,7 +41,7 @@ int main()
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     cudaEventRecord(start,0);
-omp_set_num_threads(n_stream);
+    (n_stream);
 #pragma omp parallel
     {      
         int i=omp_get_thread_num();

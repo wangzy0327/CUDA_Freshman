@@ -55,9 +55,9 @@ int main(int argc,char **argv)
   sumArraysGPU<<<grid,block>>>(a_d,b_d,res_d,nElem);
   
   
-
-  CHECK(cudaMemcpy(res_from_gpu_h,res_d,nByte,cudaMemcpyDeviceToHost));
+  cudaDeviceSynchronize();
   iElaps=cpuSecond()-iStart;
+  CHECK(cudaMemcpy(res_from_gpu_h,res_d,nByte,cudaMemcpyDeviceToHost));
   printf("Execution configuration<<<%d,%d>>> Time elapsed %f sec\n",grid.x,block.x,iElaps);
   sumArrays(a_h,b_h,res_h,nElem);
 

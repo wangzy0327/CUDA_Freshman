@@ -2,3 +2,8 @@
 /cmake-build-debug/
 .DS_Stroe
 .vscode
+*.out
+/cmake-build/
+*.qdrep
+*.sqlite
+*.ncu-rep

@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include "freshman.h"
-#define N_REPEAT 10
+#define N_REPEAT 100
 #define N_SEGMENT 4
 
 void sumArrays(float * a,float * b,float * res,const int size)

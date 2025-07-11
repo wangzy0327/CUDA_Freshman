@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "freshman.h"
 
-#define N 300000
+#define N 30000
 __global__ void kernel_1()
 {
     double sum=0.0;
@@ -30,16 +30,16 @@ __global__ void kernel_4()
 int main()
 {
     setenv("CUDA_DEVICE_MAX_CONNECTIONS","32",1);
-    int dev = 0;
+    int dev = 1;
     cudaSetDevice(dev);
-    int n_stream=16;
+    int n_stream=4;
     cudaStream_t *stream=(cudaStream_t*)malloc(n_stream*sizeof(cudaStream_t));
     for(int i=0;i<n_stream;i++)
     {
         cudaStreamCreate(&stream[i]);
     }
-    dim3 block(1);
-    dim3 grid(1);
+    dim3 block(16,32);
+    dim3 grid(32);
     cudaEvent_t start,stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);

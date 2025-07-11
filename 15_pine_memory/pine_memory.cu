@@ -23,7 +23,7 @@ int main(int argc,char **argv)
   int dev = 0;
   cudaSetDevice(dev);
 
-  int nElem=1<<14;
+  int nElem=1<<24;
   printf("Vector size:%d\n",nElem);
   int nByte=sizeof(float)*nElem;
   float *a_h=(float*)malloc(nByte);
