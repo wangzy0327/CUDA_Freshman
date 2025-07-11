@@ -310,6 +310,106 @@ void mysgemm_v5_ano(int M, int N, int K, float alpha, const float* A, const floa
     C(row3,col) = alpha * tmp[3] + beta * C(row3,col);
 }
 
+//切分方向不同
+__global__  __launch_bounds__(256)
+void mysgemm_v5_ano2(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    int lda = M, ldb = K, ldc = M;
+    //获取每个block处理的数据块
+    int tx = threadIdx.x;
+    int bx = blockIdx.x, by = blockIdx.y;
+    A = &A(bx<<5,0);
+    B = &B(0,by<<5);
+    C = &C(bx<<5,by<<5);
+    __shared__ float sa5[KS*MS];
+    __shared__ float sb5[KS*(NS+1)];
+    int row = tx&0x1F;  // 0...31
+    int col0,col1,col2,col3;
+    col0 = (tx>>5)*4;  // col0 ∈ {0,4,8,12,16,20,24,28}
+    col1 = col0 + 1;
+    col2 = col0 + 2;
+    col3 = col0 + 3;
+    float tmp[4] = {0.,0.,0.,0.};
+    float a00;
+    for(int k_count = 0;k_count < K;k_count+=KS){
+        sa5(row,col0) = A(row,col0);
+        sa5(row,col1) = A(row,col1);
+        sa5(row,col2) = A(row,col2);
+        sa5(row,col3) = A(row,col3);
+        sb5(col0,row) = B(row,col0);
+        sb5(col1,row) = B(row,col1);
+        sb5(col2,row) = B(row,col2);
+        sb5(col3,row) = B(row,col3);
+        A += (lda<<5); B += 32;
+        __syncthreads();
+        //循环展开
+        #pragma unroll
+        for(int inner_k = 0;inner_k < KS;inner_k++){
+            a00 = sa5(row,inner_k);
+            tmp[0] += sb5(col0,inner_k) * a00;
+            tmp[1] += sb5(col1,inner_k) * a00;
+            tmp[2] += sb5(col2,inner_k) * a00;
+            tmp[3] += sb5(col3,inner_k) * a00;
+        }
+        __syncthreads();
+    }
+    C(row,col0) = alpha * tmp[0] + beta * C(row,col0);
+    C(row,col1) = alpha * tmp[1] + beta * C(row,col1);
+    C(row,col2) = alpha * tmp[2] + beta * C(row,col2);
+    C(row,col3) = alpha * tmp[3] + beta * C(row,col3);
+}
+
+//切分方向不同，减少 A B 往share mem 写数据冲突
+__global__  __launch_bounds__(256)
+void mysgemm_v5_ano_pro(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    int lda = M, ldb = K, ldc = M;
+    //获取每个block处理的数据块
+    int tx = threadIdx.x;
+    int bx = blockIdx.x, by = blockIdx.y;
+    A = &A(bx<<5,0);
+    B = &B(0,by<<5);
+    C = &C(bx<<5,by<<5);
+    __shared__ float sa5[KS*MS];
+    __shared__ float sb5[KS*(NS+1)];
+    int row = tx&0x1F;  // 0...31
+    int col0,col1,col2,col3;
+    col0 = (tx>>5)<<2;  // col0 ∈ {0,4,8,12,16,20,24,28} -> col0 = {0,1,2,3,4,5,6,7}
+    col1 = col0 + 1;
+    col2 = col0 + 2;
+    col3 = col0 + 3;
+    float tmp[4] = {0.,0.,0.,0.};
+    float a00;
+    for(int k_count = 0;k_count < K;k_count+=KS){
+        sa5(row,col0) = A(row,col0);
+        sa5(row,col1) = A(row,col1);
+        sa5(row,col2) = A(row,col2);
+        sa5(row,col3) = A(row,col3);
+        sb5(col0,row) = B(row,col0);
+        sb5(col1,row) = B(row,col1);
+        sb5(col2,row) = B(row,col2);
+        sb5(col3,row) = B(row,col3);
+        A += (lda<<5); B += 32;
+        __syncthreads();
+        //循环展开
+        #pragma unroll
+        for(int inner_k = 0;inner_k < KS;inner_k++){
+            a00 = sb5(row,inner_k);
+            tmp[0] += sa5(col0,inner_k) * a00;
+            tmp[1] += sa5(col1,inner_k) * a00;
+            tmp[2] += sa5(col2,inner_k) * a00;
+            tmp[3] += sa5(col3,inner_k) * a00;
+        }
+        __syncthreads();
+    }
+    C(col0,row) = alpha * tmp[0] + beta * C(col0,row);
+    C(col1,row) = alpha * tmp[1] + beta * C(col1,row);
+    C(col2,row) = alpha * tmp[2] + beta * C(col2,row);
+    C(col3,row) = alpha * tmp[3] + beta * C(col3,row);
+    // C(row,col0) = alpha * tmp[0] + beta * C(row,col0);
+    // C(row,col1) = alpha * tmp[1] + beta * C(row,col1);
+    // C(row,col2) = alpha * tmp[2] + beta * C(row,col2);
+    // C(row,col3) = alpha * tmp[3] + beta * C(row,col3);
+}
+
 #define sa6(i,j) sa6[(((j)<<6)) + (i)]
 #define sb6(i,j) sb6[(((j)<<6)) + (i)]
 #define MS_6 64
@@ -515,7 +615,7 @@ void test_mysemm_v5(int M, int N, int K, float alpha, const float* A, const floa
     dim3 blockDim(256);//x4
     // dim3 blockDim(64);//x4
     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v5_ano<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    mysgemm_v5_ano2<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
     cudaDeviceSynchronize();
 }
 
@@ -608,7 +708,8 @@ int main(int argc,char **argv)
   printf("--------------------------------------------\n");
   
 
-  for(int i_count = 0;i_count < upper_limit;i_count++){
+  for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
+//   for(int i_count = 0;i_count < upper_limit;i_count++){
 //   for(int i_count = 0;i_count < 1;i_count++){
     m=n=k=SIZE[i_count];
     printf("\nM=N=K=%d:\n",m);
