@@ -310,7 +310,7 @@ void mysgemm_v5_ano(int M, int N, int K, float alpha, const float* A, const floa
     C(row3,col) = alpha * tmp[3] + beta * C(row3,col);
 }
 
-//切分方向不同
+
 __global__  __launch_bounds__(256)
 void mysgemm_v5_ano2(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     int lda = M, ldb = K, ldc = M;
@@ -410,18 +410,122 @@ void mysgemm_v5_ano_pro(int M, int N, int K, float alpha, const float* A, const 
     // C(row,col3) = alpha * tmp[3] + beta * C(row,col3);
 }
 
-#define sa6(i,j) sa6[(((j)<<6)) + (i)]
-#define sb6(i,j) sb6[(((j)<<6)) + (i)]
-#define MS_6 64
-#define NS_6 64
-#define KS_6 64
-#define MS_6_PAD 65    // 带填充的行大小（64+1）
-#define KS_6_PAD 65    // 带填充的行大小（64+1）
+#define sb5(i,j) sb5[(((j)<<5)) + (i)]
+__global__  __launch_bounds__(256)
+void mysgemm_v5_ano2_pro(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    int lda = M, ldb = K, ldc = M;
+    //获取每个block处理的数据块
+    int tx = threadIdx.x;
+    int bx = blockIdx.x, by = blockIdx.y;
+    A = &A(bx<<5,0);
+    B = &B(0,by<<5);
+    C = &C(bx<<5,by<<5);
+    __shared__ float sa5[KS*MS];
+    __shared__ float sb5[KS*NS];
+    int row = tx&0x1F;  // 0...31
+    int col0,col1,col2,col3;
+    col0 = (tx>>5)*4;  // col0 ∈ {0,4,8,12,16,20,24,28}
+    col1 = col0 + 1;
+    col2 = col0 + 2;
+    col3 = col0 + 3;
+    float tmp[4] = {0.,0.,0.,0.};
+    float a00;
+    for(int k_count = 0;k_count < K;k_count+=KS){
+        sa5(row,col0) = A(row,col0);
+        sa5(row,col1) = A(row,col1);
+        sa5(row,col2) = A(row,col2);
+        sa5(row,col3) = A(row,col3);
+        // printf("(iy:ix) = (%d,%d) handle (%d,%d) transpose to (%d,%d) \n",row,col0,row,(row+col0)%NS,(row+col0)%NS,row);
+        sb5((row+col0)%NS,row) = B(row,(row+col0)%NS);
+        sb5((row+col1)%NS,row) = B(row,(row+col1)%NS);
+        sb5((row+col2)%NS,row) = B(row,(row+col2)%NS);
+        sb5((row+col3)%NS,row) = B(row,(row+col3)%NS);
+        A += (lda<<5); B += 32;
+        __syncthreads();
+        //循环展开
+        #pragma unroll
+        for(int inner_k = 0;inner_k < KS;inner_k++){
+            a00 = sa5(row,inner_k);
+            tmp[0] += sb5(col0,inner_k) * a00;
+            tmp[1] += sb5(col1,inner_k) * a00;
+            tmp[2] += sb5(col2,inner_k) * a00;
+            tmp[3] += sb5(col3,inner_k) * a00;
+        }
+        __syncthreads();
+    }
+    C(row,col0) = alpha * tmp[0] + beta * C(row,col0);
+    C(row,col1) = alpha * tmp[1] + beta * C(row,col1);
+    C(row,col2) = alpha * tmp[2] + beta * C(row,col2);
+    C(row,col3) = alpha * tmp[3] + beta * C(row,col3);
+}
+
+
+// #define A(i,j) A[(i) + (j)*lda]
+// #define B(i,j) B[(i) + (j)*ldb]
+// #define C(i,j) C[(i) + (j)*ldc]
+// #define sa6(i,j) sa6[((j)<<5) + (i)]
+// #define sb6(i,j) sb6[(((j)<<5)+1) + (i)]
+// #define MS 32
+// #define NS 32
+// #define KS 32
+// // cache blocking version, without register-level data re-use
+// // with memory coelascing on shared memory
+// // more workloads per thread. 4x1 micro kernel.
+// __global__  __launch_bounds__(256)
+// void mysgemm_v5(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+//     int lda = M, ldb = K, ldc = M;
+//     int tx = threadIdx.x;
+//     int bx = blockIdx.x, by = blockIdx.y;
+//     //row 为 要处理数据的行 每个block数据为1024,blockDim.x=256(每个block线程数),每个thread处理4行数据,数据列为[0-31],32列
+//     int row1 = (tx&7)<<2, row2 = row1+1, row3 = row1+2, row4 = row1+3, col = tx>>3;
+//     A = &A((bx<<5),0);  //当前block处理的A的数据块起始位置
+//     B = &B(0,(by<<5));
+//     C = &C((bx<<5),(by<<5));
+//     __shared__ float sa5[MS*KS];
+//     __shared__ float sb5[KS*NS];
+
+//     float Cres[4] = {0., 0., 0., 0.};
+//     float b00;
+//     for (int k_count = 0; k_count<K; k_count+=KS){
+//         sa5(row1,col)=A(row1,col);
+//         sa5(row2,col)=A(row2,col);
+//         sa5(row3,col)=A(row3,col);
+//         sa5(row4,col)=A(row4,col);
+//         sb5(col,row1)=B(row1,col);
+//         sb5(col,row2)=B(row2,col);
+//         sb5(col,row3)=B(row3,col);
+//         sb5(col,row4)=B(row4,col);
+//         A+=(lda<<5);B+=32;
+//         __syncthreads();
+//         #pragma unroll
+//         for (int inner_k_count=0;inner_k_count<KS;inner_k_count++){
+//             b00 = sb5(col,inner_k_count);
+//             Cres[0] += sa5(row1,inner_k_count) * b00;
+//             Cres[1] += sa5(row2,inner_k_count) * b00;
+//             Cres[2] += sa5(row3,inner_k_count) * b00;
+//             Cres[3] += sa5(row4,inner_k_count) * b00;
+//         }
+//         __syncthreads();
+//     }
+//     C(row1,col) = alpha * Cres[0] + beta*C(row1,col);
+//     C(row2,col) = alpha * Cres[1] + beta*C(row2,col);
+//     C(row3,col) = alpha * Cres[2] + beta*C(row3,col);
+//     C(row4,col) = alpha * Cres[3] + beta*C(row4,col);
+// }
+
+
+#define sa7(i,j) sa6[(((j)<<6)) + (i)]
+#define sb7(i,j) sb6[(((j)<<6)) + (i)]
+#define MS_7 64
+#define NS_7 64
+#define KS_7 64
+#define MS_7_PAD 65    // 带填充的行大小（64+1）
+#define KS_7_PAD 65    // 带填充的行大小（64+1）
 // cache blocking version, without register-level data re-use
 // with memory coelascing on shared memory
 // more workloads per thread. 4x1 micro kernel.
 __global__  __launch_bounds__(256)
-void mysgemm_v6(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+void mysgemm_v7_ano(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     int lda = M, ldb = K, ldc = M;
     int tx = threadIdx.x;
     int bx = blockIdx.x, by = blockIdx.y;
@@ -438,14 +542,14 @@ void mysgemm_v6(int M, int N, int K, float alpha, const float* A, const float* B
     C = &C((bx << 6), (by << 6));  // C的当前块起始：行=bx*64，列=by*64（C是M×N矩阵）
 
     // 3. 共享内存：存储A和B的子块（每个block私有）
-    __shared__ float sa6[MS_6  * KS_6];  // 64×64=4096元素，存储A的子块（MS_6行×KS_6列）
-    __shared__ float sb6[KS_6  * NS_6];  // 64×64=4096元素，存储B的子块（KS_6行×NS_6列）
+    __shared__ float sa6[MS_7  * KS_7];  // 64×64=4096元素，存储A的子块（MS_6行×KS_6列）
+    __shared__ float sb6[KS_7  * NS_7];  // 64×64=4096元素，存储B的子块（KS_6行×NS_6列）
 
     // 4. 寄存器：存储当前线程计算的16个结果（4×4）
     float Cres[4][4] = {0.0f};  // Cres[i][j]对应(row_base+i, col_base+j)的结果
 
     // 5. 分块遍历K维度，累加计算
-    for (int k_count = 0; k_count < K; k_count += KS_6) {
+    for (int k_count = 0; k_count < K; k_count += KS_7) {
         // 5.1 加载A和B的子块到共享内存（每个线程加载4×4=16元素）
         #pragma unroll  // 展开循环提高效率
         for (int i = 0; i < 4; i++) {  // 遍历4行
@@ -454,27 +558,27 @@ void mysgemm_v6(int M, int N, int K, float alpha, const float* A, const float* B
                 int row = row_base + i;    // 行索引（0~63，不越界）
                 int col = col_base + j;    // 列索引（0~63，不越界）
                 // 加载A的元素到sa6：A的子块是MS_6×KS_6，行=row，列=col（当前K分块内的列）
-                sa6(row, col) = A(row, col);
+                sa7(row, col) = A(row, col);
                 // 加载B的元素到sb6：B的子块是KS_6×NS_6，行=col（当前K分块内的行），列=row
-                sb6(col, row) = B(col, row);
+                sb7(col, row) = B(col, row);
             }
         }
 
         // 移动到下一个K分块（更新A和B的指针）
-        A += lda * KS_6;  // A的列增加KS_6（lda是每行元素数，所以+lda*KS_6等价于列+KS_6）
-        B += KS_6;        // B的行增加KS_6（B是行优先，每行K元素，+KS_6等价于行+KS_6）
+        A += lda * KS_7;  // A的列增加KS_6（lda是每行元素数，所以+lda*KS_6等价于列+KS_6）
+        B += KS_7;        // B的行增加KS_6（B是行优先，每行K元素，+KS_6等价于行+KS_6）
 
         __syncthreads();  // 等待所有线程加载完共享内存
 
         // 5.2 计算当前K分块的贡献（累加矩阵乘法）
         #pragma unroll
-        for (int k = 0; k < KS_6; k++) {  // 遍历当前K分块内的元素
+        for (int k = 0; k < KS_7; k++) {  // 遍历当前K分块内的元素
             #pragma unroll
             for (int i = 0; i < 4; i++) {  // 4行
                 #pragma unroll
                 for (int j = 0; j < 4; j++) {  // 4列
                     // 矩阵乘法：C[i][j] += A[i][k] * B[k][j]
-                    Cres[i][j] += sa6(row_base + i, k) * sb6(k, col_base + j);
+                    Cres[i][j] += sa7(row_base + i, k) * sb7(k, col_base + j);
                 }
             }
         }
@@ -615,20 +719,20 @@ void test_mysemm_v5(int M, int N, int K, float alpha, const float* A, const floa
     dim3 blockDim(256);//x4
     // dim3 blockDim(64);//x4
     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v5_ano2<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    mysgemm_v5_ano2_pro<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
     cudaDeviceSynchronize();
 }
 
-void test_mysemm_v6(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
-    // cudaDeviceSynchronize();
-    int blockX = MS_6, blockY = NS_6;
-    // dim3 blockDim(1024);
-    dim3 blockDim(256);//x4
-    // dim3 blockDim(64);//x4
-    dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v6<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
-    cudaDeviceSynchronize();
-}
+// void test_mysemm_v6(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+//     // cudaDeviceSynchronize();
+//     int blockX = MS, blockY = NS;
+//     // dim3 blockDim(1024);
+//     dim3 blockDim(256);//x4
+//     // dim3 blockDim(64);//x4
+//     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
+//     mysgemm_v6<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+//     cudaDeviceSynchronize();
+// }
 
 void test_mysemm_v7(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     // cudaDeviceSynchronize();
@@ -708,8 +812,8 @@ int main(int argc,char **argv)
   printf("--------------------------------------------\n");
   
 
-  for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
-//   for(int i_count = 0;i_count < upper_limit;i_count++){
+//   for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
+  for(int i_count = 0;i_count < upper_limit;i_count++){
 //   for(int i_count = 0;i_count < 1;i_count++){
     m=n=k=SIZE[i_count];
     printf("\nM=N=K=%d:\n",m);
@@ -742,7 +846,7 @@ int main(int argc,char **argv)
         case 3: test_mysemm_v3(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 4: test_mysemm_v4(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 5: test_mysemm_v5(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 6: test_mysemm_v6(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
+        // case 6: test_mysemm_v6(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         default:
           break;
       }

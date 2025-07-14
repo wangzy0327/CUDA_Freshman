@@ -3,9 +3,9 @@ sudo /usr/local/cuda/bin/ncu --metrics \
     smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct,smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld,smsp__warps_launched.sum,smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active,smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct,smsp__warp_issue_stalled_imc_miss_per_warp_active.pct,smsp__thread_inst_executed_per_inst_executed.ratio,dram__bytes_read.sum,dram__bytes_write.sum,smsp__inst_executed_pipe_tensor,smsp__throughput.avg.pct_of_peak_sustained_elapsed,smsp__warp_issue_stalled_no_instructions_per_warp_active.pct,smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct,smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct,smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct,l1tex__t_set_accesses.sum ./cmake-build/39_sgemm/sgemm 5
 
 
-指标	mysgemm_v5_ano	mysgemm_v5_ano2 mysgemm_v5_ano_pro	
-耗时（秒）	0.005195	   0.005396        0.004798	         
-GFLOPS	    3306.87	      3183.891133       3581.00	        
+指标	mysgemm_v5_ano	mysgemm_v5_ano2 mysgemm_v5_ano_pro	mysgemm_v5_ano_pro
+耗时（秒）	0.005195	   0.005396        0.004798	            0.003511
+GFLOPS	    3306.87	      3183.891133       3581.00	           4892.787679
 
 mysgemm_v5_ano(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-11 07:18:26, Context 1, Stream 7
     Section: Command line profiler metrics
@@ -104,15 +104,59 @@ mysgemm_v5_ano_pro(int, int, int, float, float const*, float const*, float, floa
     smsp__warps_launched.sum                                                          warp                         32,768
     ---------------------------------------------------------------------- --------------- ------------------------------    
 
+mysgemm_v5_ano2_pro(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-14 07:23:18, Context 1, Stream 7
+    Section: Command line profiler metrics
+    ---------------------------------------------------------------------- --------------- ------------------------------
+    dram__bytes_read.sum                                                             Mbyte                         717.35
+    dram__bytes_write.sum                                                            Mbyte                          16.26
+    l1tex__t_set_accesses.sum                                                                                 277,086,208
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                     1,513.10
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                        1,615
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                        1,419
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                      121,048
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.max                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.min                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum                                                            0
+    smsp__inst_executed_pipe_tensor.avg                                               inst                              0
+    smsp__inst_executed_pipe_tensor.max                                               inst                              0
+    smsp__inst_executed_pipe_tensor.min                                               inst                              0
+    smsp__inst_executed_pipe_tensor.sum                                               inst                              0
+    smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active                        %                          12.91
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct                        %                          22.36
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct                        %                            100
+    smsp__thread_inst_executed_per_inst_executed.ratio                                                                 32
+    smsp__throughput.avg.pct_of_peak_sustained_elapsed                                                            (!) n/a
+    smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct                          %                           0.42
+    smsp__warp_issue_stalled_imc_miss_per_warp_active.pct                                %                           0.02
+    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                          10.86
+    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                          47.79
+    smsp__warp_issue_stalled_no_instructions_per_warp_active.pct                                                  (!) n/a
+    smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct                            %                           0.01
+    smsp__warps_launched.sum                                                          warp                         32,768
+    ---------------------------------------------------------------------- --------------- ------------------------------
+
+
+指标	         mysgemm_v5_ano	   mysgemm_v5_ano2	mysgemm_v5_ano2_pro
+共享内存加载冲突（sum）	590,811	        106,716	        121,048
+共享内存存储冲突（sum）	58,720,256	   195,623,348	       0
+
+指标	        mysgemm_v5_ano    mysgemm_v5_ano2	mysgemm_v5_ano2_pro
+LSU 执行效率（%）	8.38	            11.55	          12.91
+warp 发射停滞 - MIO 节流（%）	62.02	56.10	          47.79
+
 
 分析：
 
-mysgemm_v5_ano2 的 long scoreboard stall 最小，MIO throttle 也较低，说明其 warp stall 控制较好；
+mysgemm_v5_ano2_pro 采用了对角线读全局内存，对角线写共享内存的方式（虽然B矩阵读取时没有合并读了（col不同），但是写共享内存完全避免了bank conflict）,写冲突没有了，性能会有大的提升
+另外，由于不存在写冲突，且没有采用paddling 填充，则后续 4x1 micro kernel 计算乘积和时（如果是padding的话，4是不在同一列的，会跟同一个warp中的其他4的列发生较严重冲突），而这里不存在这个问题。
+
+mysgemm_v5_ano2 的 long scoreboard stall 较小，MIO throttle 也较低，说明其 warp stall 控制较好；
 然而，由于 shared memory 写冲突过多，实际性能并未提升；
 mysgemm_v5_ano_pro 的 stall 分布优于 mysgemm_v5_ano，虽然不如 mysgemm_v5_ano2 完美，但整体上更平衡
 
 
-        mysgemm_v5_ano	                                  mysgemm_v5_ano2	                                     mysgemm_v5_ano_pro
-优点	无明显优势	                           - 最少 shared memory 读冲突<br> - 较低的 stall       - 最高 GFLOPS<br>-  最佳 global memory 效率<br>-  合理的 stall 分布
-缺点	- global memory 效率低<br>- stall 高	- 极高的 shared memory 写冲突<br>- GFLOPS 最低	          - shared memory 写冲突较高
-综合评分	⭐⭐	                                            ⭐⭐⭐	                                       ⭐⭐⭐⭐⭐    
+        mysgemm_v5_ano	                                  mysgemm_v5_ano2	                                     mysgemm_v5_ano_pro                                              mysgemm_v5_ano2_pro
+优点	无明显优势	                           - 最少 shared memory 读冲突<br> - 较低的 stall       - 较高 GFLOPS<br>-  最佳 global memory 效率<br>-  合理的 stall 分布    - 最高 GFLOPS<br>-  bank写冲突为0 <br>-  合理的 stall 分布
+缺点	- global memory 效率低<br>- stall 高	- 极高的 shared memory 写冲突<br>- GFLOPS 最低	          - shared memory 写冲突较高                                                 - shared memory 写冲突最低
+综合评分	⭐⭐	                                            ⭐⭐⭐	                                       ⭐⭐⭐⭐                                                             ⭐⭐⭐⭐⭐
