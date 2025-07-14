@@ -460,58 +460,59 @@ void mysgemm_v5_ano2_pro(int M, int N, int K, float alpha, const float* A, const
 }
 
 
-// #define A(i,j) A[(i) + (j)*lda]
-// #define B(i,j) B[(i) + (j)*ldb]
-// #define C(i,j) C[(i) + (j)*ldc]
-// #define sa6(i,j) sa6[((j)<<5) + (i)]
-// #define sb6(i,j) sb6[(((j)<<5)+1) + (i)]
-// #define MS 32
-// #define NS 32
-// #define KS 32
-// // cache blocking version, without register-level data re-use
-// // with memory coelascing on shared memory
-// // more workloads per thread. 4x1 micro kernel.
-// __global__  __launch_bounds__(256)
-// void mysgemm_v5(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
-//     int lda = M, ldb = K, ldc = M;
-//     int tx = threadIdx.x;
-//     int bx = blockIdx.x, by = blockIdx.y;
-//     //row 为 要处理数据的行 每个block数据为1024,blockDim.x=256(每个block线程数),每个thread处理4行数据,数据列为[0-31],32列
-//     int row1 = (tx&7)<<2, row2 = row1+1, row3 = row1+2, row4 = row1+3, col = tx>>3;
-//     A = &A((bx<<5),0);  //当前block处理的A的数据块起始位置
-//     B = &B(0,(by<<5));
-//     C = &C((bx<<5),(by<<5));
-//     __shared__ float sa5[MS*KS];
-//     __shared__ float sb5[KS*NS];
-
-//     float Cres[4] = {0., 0., 0., 0.};
-//     float b00;
-//     for (int k_count = 0; k_count<K; k_count+=KS){
-//         sa5(row1,col)=A(row1,col);
-//         sa5(row2,col)=A(row2,col);
-//         sa5(row3,col)=A(row3,col);
-//         sa5(row4,col)=A(row4,col);
-//         sb5(col,row1)=B(row1,col);
-//         sb5(col,row2)=B(row2,col);
-//         sb5(col,row3)=B(row3,col);
-//         sb5(col,row4)=B(row4,col);
-//         A+=(lda<<5);B+=32;
-//         __syncthreads();
-//         #pragma unroll
-//         for (int inner_k_count=0;inner_k_count<KS;inner_k_count++){
-//             b00 = sb5(col,inner_k_count);
-//             Cres[0] += sa5(row1,inner_k_count) * b00;
-//             Cres[1] += sa5(row2,inner_k_count) * b00;
-//             Cres[2] += sa5(row3,inner_k_count) * b00;
-//             Cres[3] += sa5(row4,inner_k_count) * b00;
-//         }
-//         __syncthreads();
-//     }
-//     C(row1,col) = alpha * Cres[0] + beta*C(row1,col);
-//     C(row2,col) = alpha * Cres[1] + beta*C(row2,col);
-//     C(row3,col) = alpha * Cres[2] + beta*C(row3,col);
-//     C(row4,col) = alpha * Cres[3] + beta*C(row4,col);
-// }
+#define A(i,j) A[(i) + (j)*lda]
+#define B(i,j) B[(i) + (j)*ldb]
+#define C(i,j) C[(i) + (j)*ldc]
+#define sa6(i,j) sa6[((j)<<5) + (i)]
+#define sb6(i,j) sb6[(((j)<<5)) + (i)]
+#define MS_6 32
+#define NS_6 32
+#define KS_6 32
+// cache blocking version, without register-level data re-used
+// with memory coelascing on shared memory
+// more workloads per thread. 4x1 micro kernel.
+// adopt vetorized load/store
+__global__  __launch_bounds__(256)
+void mysgemm_v6(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    int lda = M, ldb = K, ldc = M;
+    int tx = threadIdx.x;
+    int bx = blockIdx.x, by = blockIdx.y;
+    int row1 = (tx&7)<<2, row2 = row1+1, row3 = row1+2, row4 = row1+3, col = tx>>3;
+    A = &A((bx<<5),0);
+    B = &B(0,(by<<5));
+    C = &C((bx<<5),(by<<5));
+    __shared__ float sa6[MS_6*KS_6];
+    __shared__ float sb6[KS_6*NS_6];
+    float4 Av, Bv, Cv, Cres;
+    Cres.x = 0., Cres.y = 0., Cres.z = 0., Cres.w = 0.;
+    float b00;
+    for (int k_count = 0; k_count<K; k_count+=KS_6){
+        Av = *((float4 *)(&A(row1,col)));
+        Bv = *((float4 *)(&B(row1,col)));
+        ((float4 *)sa6)[tx] = Av;
+        sb6(col,row1)=Bv.x;
+        sb6(col,row2)=Bv.y;
+        sb6(col,row3)=Bv.z;
+        sb6(col,row4)=Bv.w;
+        A+=(lda<<5);B+=32;
+        __syncthreads();
+        #pragma unroll
+        for (int inner_k_count=0;inner_k_count<KS_6;inner_k_count++){
+            b00 = sb6(col, inner_k_count);
+            Cres.x += sa6(row1,inner_k_count) * b00;
+            Cres.y += sa6(row2,inner_k_count) * b00;
+            Cres.z += sa6(row3,inner_k_count) * b00;
+            Cres.w += sa6(row4,inner_k_count) * b00;
+        }
+        __syncthreads();
+    }
+    Cv = *((float4 *)(&C(row1,col)));
+    Cres.x = alpha * Cres.x + beta * Cv.x;
+    Cres.y = alpha * Cres.y + beta * Cv.y;
+    Cres.z = alpha * Cres.z + beta * Cv.z;
+    Cres.w = alpha * Cres.w + beta * Cv.w;
+    *(float4 *)(&(C(row1,col))) = Cres;
+}
 
 
 #define sa7(i,j) sa6[(((j)<<6)) + (i)]
@@ -723,16 +724,16 @@ void test_mysemm_v5(int M, int N, int K, float alpha, const float* A, const floa
     cudaDeviceSynchronize();
 }
 
-// void test_mysemm_v6(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
-//     // cudaDeviceSynchronize();
-//     int blockX = MS, blockY = NS;
-//     // dim3 blockDim(1024);
-//     dim3 blockDim(256);//x4
-//     // dim3 blockDim(64);//x4
-//     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-//     mysgemm_v6<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
-//     cudaDeviceSynchronize();
-// }
+void test_mysemm_v6(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    // cudaDeviceSynchronize();
+    int blockX = MS_6, blockY = NS_6;
+    // dim3 blockDim(1024);
+    dim3 blockDim(256);//x4
+    // dim3 blockDim(64);//x4
+    dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
+    mysgemm_v6<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    cudaDeviceSynchronize();
+}
 
 void test_mysemm_v7(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     // cudaDeviceSynchronize();
@@ -761,7 +762,7 @@ int main(int argc,char **argv)
   }
   int m, n, k,max_size;
   int N=1, upper_limit;
-  if (kernel<=5&&kernel!=0) upper_limit=8;
+  if (kernel<=6&&kernel!=0) upper_limit=8;
   else upper_limit=(sizeof(SIZE)/sizeof(int));
   max_size=SIZE[upper_limit-1];
   float* A_host = NULL,*B_host = NULL, *C_host = NULL,*C_from_dev = NULL,*C_from_dev_lib = NULL;
@@ -812,8 +813,8 @@ int main(int argc,char **argv)
   printf("--------------------------------------------\n");
   
 
-//   for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
-  for(int i_count = 0;i_count < upper_limit;i_count++){
+  for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
+//   for(int i_count = 0;i_count < upper_limit;i_count++){
 //   for(int i_count = 0;i_count < 1;i_count++){
     m=n=k=SIZE[i_count];
     printf("\nM=N=K=%d:\n",m);
@@ -846,7 +847,7 @@ int main(int argc,char **argv)
         case 3: test_mysemm_v3(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 4: test_mysemm_v4(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 5: test_mysemm_v5(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        // case 6: test_mysemm_v6(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
+        case 6: test_mysemm_v6(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         default:
           break;
       }
