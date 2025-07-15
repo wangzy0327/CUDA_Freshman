@@ -3,7 +3,7 @@ sudo /usr/local/cuda/bin/ncu --metrics \
     smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct,smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld,smsp__warps_launched.sum,smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active,smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct,smsp__warp_issue_stalled_imc_miss_per_warp_active.pct,smsp__thread_inst_executed_per_inst_executed.ratio,dram__bytes_read.sum,dram__bytes_write.sum,smsp__inst_executed_pipe_tensor,smsp__throughput.avg.pct_of_peak_sustained_elapsed,smsp__warp_issue_stalled_no_instructions_per_warp_active.pct,smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct,smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct,smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct,l1tex__t_set_accesses.sum ./cmake-build/39_sgemm/sgemm 5
 
 
-指标	mysgemm_v5_ano	mysgemm_v5_ano2 mysgemm_v5_ano_pro	mysgemm_v5_ano_pro   mysgemm_v6     mysgemm_v7
+指标	mysgemm_v5_ano	mysgemm_v5_ano2 mysgemm_v5_ano_pro	mysgemm_v5_ano2_pro   mysgemm_v6     mysgemm_v7
 耗时（秒）	0.005195	   0.005396        0.004798	            0.003511            0.004644      0.002224
 GFLOPS	    3306.87	      3183.891133       3581.00	           4892.787679         3699.419      7723.7613
 
