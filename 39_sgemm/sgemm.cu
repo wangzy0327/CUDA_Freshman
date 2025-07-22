@@ -27,6 +27,37 @@ void sgemm_CPU(int M, int N, int K, float alpha, const float * MatA, const float
     }
 }
 
+void testThreadIdx(){
+  int tx_size = 256;
+  int bx = 0;int by = 0;
+  for(int tx = 0;tx < tx_size;tx++){
+    int row_b = tx%32, col_b = ((tx>>5)&7)<<1;  //16 x 64 row_b [0,1,2,...,31]  col_b [0,2,...,14]
+    printf("kernel threadIdx : %d (%d,%d) =  (%d,%d),(%d,%d),(%d,%d),(%d,%d) transpose to (%d,%d),(%d,%d),(%d,%d),(%d,%d) \n", tx,\
+    col_b,row_b,\
+    row_b,(row_b%16+col_b)%KS_7_2,\
+    row_b,(row_b%16+col_b+1)%KS_7_2,\
+    row_b+32,(row_b%16+col_b)%KS_7_2,\
+    row_b+32,(row_b%16+col_b+1)%KS_7_2,\
+    (row_b%16+col_b)%KS_7_2,row_b,\
+    (row_b%16+col_b+1)%KS_7_2,row_b,\
+    (row_b%16+col_b)%KS_7_2,row_b+32,\
+    (row_b%16+col_b+1)%KS_7_2,row_b+32);
+  }
+}
+
+void testThreadIdx2(){
+  int tx_size = 256;
+  for(int tx = 0;tx < tx_size;tx++){
+    int row = tx&0x1F;  // 0...31
+    int col0,col1,col2,col3;
+    col0 = (tx>>5)*4;  // col0 ∈ {0,4,8,12,16,20,24,28}
+    col1 = col0 + 1;
+    col2 = col0 + 2;
+    col3 = col0 + 3;
+    printf("threadIdx2 %d = transpose to (%d,%d),(%d,%d),(%d,%d),(%d,%d) \n",tx,(row+col0)%NS,row,(row+col1)%NS,row,(row+col2)%NS,row,(row+col3)%NS,row);
+  }
+}
+
 void test_mysgemm_v1(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     // cudaDeviceSynchronize();
     int blockX = 32, blockY = 32;
@@ -87,13 +118,13 @@ void test_mysgemm_v6(int M, int N, int K, float alpha, const float* A, const flo
 }
 
 void test_mysgemm_v7(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
-    // cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
     int blockX = 64, blockY = 64;
     // dim3 blockDim(1024);
     dim3 blockDim(256);//x4
     // dim3 blockDim(64);//x4
     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v7<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    mysgemm_v7_ano<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
     cudaDeviceSynchronize();
 }
 
@@ -111,6 +142,7 @@ int main(int argc,char **argv)
     printf("Please enter a valid kernel number (0-11).\n");
     exit(-2);
   }
+  // testThreadIdx();
   int m, n, k,max_size;
   int N=1, upper_limit;
   if (kernel<=7&&kernel!=0) upper_limit=8;
@@ -143,8 +175,8 @@ int main(int argc,char **argv)
   memset(C_host,0,nBytes);
   memset(C_from_dev,0,nBytes);
   memset(C_from_dev_lib,0,nBytes);
-  cudaMemset(C_dev,0,nBytes);
-  cudaMemset(C_dev_lib,0,nBytes);
+  CHECK(cudaMemset(C_dev,0,nBytes));
+  CHECK(cudaMemset(C_dev_lib,0,nBytes));
 
   initialData(A_host,nElem);
   initialData(B_host,nElem);
@@ -165,10 +197,12 @@ int main(int argc,char **argv)
   
 
   for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
-//   for(int i_count = 0;i_count < upper_limit;i_count++){
-//   for(int i_count = 0;i_count < 1;i_count++){
+  // for(int i_count = 0;i_count < upper_limit;i_count++){
+  // for(int i_count = 0;i_count < 1;i_count++){
     m=n=k=SIZE[i_count];
     printf("\nM=N=K=%d:\n",m);
+    //warmup cuBLAS 库在第一次调用时需要初始化内部状态（如加载内核、分配内部缓冲区等），这会带来额外的开销
+    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, m, B_dev, k, &beta, C_dev_lib, m);
     cudaEventRecord(beg_lib);
     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, m, B_dev, k, &beta, C_dev_lib, m);
     cudaEventRecord(end_lib);
@@ -177,7 +211,7 @@ int main(int argc,char **argv)
     cudaEventElapsedTime(&elapsed_time, beg_lib, end_lib);
     elapsed_time /= 1000.;
     printf("GPU cublas Average elasped time: %f second, performance: %f GFLOPS.\n", elapsed_time,2.*1e-9*m*n*k/elapsed_time);
-    if(i_count < 3){
+    if(i_count < 0){
       //数据量低于 3*256 时，计算CPU校对结果
       double iStart=cpuSecond();
       sgemm_CPU(m, n, k, alpha, A_host, B_host, beta, C_host);
@@ -231,5 +265,7 @@ int main(int argc,char **argv)
   cudaFreeHost(C_from_dev);
   cudaFreeHost(C_from_dev_lib);
   cublasDestroy_v2(handle);
+  // testThreadIdx();
+  // testThreadIdx2();
   return 0;
 }

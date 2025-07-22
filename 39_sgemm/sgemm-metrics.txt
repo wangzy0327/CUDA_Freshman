@@ -1,11 +1,11 @@
 ncu命令:
 sudo /usr/local/cuda/bin/ncu --metrics \
-    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct,smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld,smsp__warps_launched.sum,smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active,smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct,smsp__warp_issue_stalled_imc_miss_per_warp_active.pct,smsp__thread_inst_executed_per_inst_executed.ratio,dram__bytes_read.sum,dram__bytes_write.sum,smsp__inst_executed_pipe_tensor,smsp__throughput.avg.pct_of_peak_sustained_elapsed,smsp__warp_issue_stalled_no_instructions_per_warp_active.pct,smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct,smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct,smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct,l1tex__t_set_accesses.sum ./cmake-build/39_sgemm/sgemm 5
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct,smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st,l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld,smsp__warps_launched.sum,smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active,smsp__warps_active,smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct,smsp__warp_issue_stalled_imc_miss_per_warp_active.pct,smsp__thread_inst_executed_per_inst_executed.ratio,dram__bytes_read.sum,dram__bytes_write.sum,smsp__inst_executed_pipe_tensor,smsp__throughput.avg.pct_of_peak_sustained_elapsed,smsp__warp_issue_stalled_no_instructions_per_warp_active.pct,smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct,smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct,smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct,l1tex__t_set_accesses.sum,tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation,tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation,tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation,tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation,tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation ./cmake-build/39_sgemm/sgemm 5
 
 
-指标	mysgemm_v5_ano	mysgemm_v5_ano2 mysgemm_v5_ano_pro	mysgemm_v5_ano2_pro   mysgemm_v6     mysgemm_v7
-耗时（秒）	0.005195	   0.005396        0.004798	            0.003511            0.004644      0.002224
-GFLOPS	    3306.87	      3183.891133       3581.00	           4892.787679         3699.419      7723.7613
+指标	mysgemm_v5_ano	mysgemm_v5_ano2 mysgemm_v5_ano_pro	mysgemm_v5_ano2_pro   mysgemm_v6     mysgemm_v7   mysgemm_v7_ano   mysgemm_v7_ano2
+耗时（秒）	0.005195	   0.005396        0.004798	            0.003511            0.004644      0.002224       0.002223          0.001863
+GFLOPS	    3306.87	      3183.891133       3581.00	           4892.787679         3699.419      7723.7613     7728.986910       9220.625443
 
 mysgemm_v5_ano(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-11 07:18:26, Context 1, Stream 7
     Section: Command line profiler metrics
@@ -137,16 +137,16 @@ mysgemm_v5_ano2_pro(int, int, int, float, float const*, float const*, float, flo
     ---------------------------------------------------------------------- --------------- ------------------------------
 
 MSxNSxKS = 64x64x64
-mysgemm_v7(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-15 03:15:19, Context 1, Stream 7
+mysgemm_v7(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-16 08:47:44, Context 1, Stream 7
     Section: Command line profiler metrics
     ---------------------------------------------------------------------- --------------- ------------------------------
-    dram__bytes_read.sum                                                             Mbyte                         152.35
-    dram__bytes_write.sum                                                            Mbyte                          15.74
+    dram__bytes_read.sum                                                             Mbyte                         152.65
+    dram__bytes_write.sum                                                            Mbyte                          15.73
     l1tex__t_set_accesses.sum                                                                                 138,936,320
-    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                     1,659.47
-    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                        2,615
-    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                          793
-    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                      132,758
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                     1,729.55
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                        2,571
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                          745
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                      138,364
     l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg                                                            0
     l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.max                                                            0
     l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.min                                                            0
@@ -155,6 +155,139 @@ mysgemm_v7(int, int, int, float, float const*, float const*, float, float*), 202
     smsp__inst_executed_pipe_tensor.max                                               inst                              0
     smsp__inst_executed_pipe_tensor.min                                               inst                              0
     smsp__inst_executed_pipe_tensor.sum                                               inst                              0
+    smsp__warps_active.avg                                                                                   9,772,487.46
+    smsp__warps_active.max                                                                                     10,844,791
+    smsp__warps_active.min                                                                                      9,258,678
+    smsp__warps_active.sum                                                                                  3,127,195,986
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.av           cycle                              0
+    g                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.ma           cycle                              0
+    x                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.mi           cycle                              0
+    n                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.su           cycle                              0
+    m                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.avg              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.max              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.min              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.sum              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.a           cycle                   2,390,513.56
+    vg                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.m           cycle                   2,708,103.50
+    ax                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.m           cycle                      2,327,159
+    in                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.s           cycle                  95,620,542.50
+    um                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.avg            cycle                   2,390,513.56
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.max            cycle                   2,708,103.50
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.min            cycle                      2,327,159
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.sum            cycle                  95,620,542.50
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.avg             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.max             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.min             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.sum             cycle                              0
+    smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active                        %                          10.53
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct                        %                          22.41
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct                        %                             50
+    smsp__thread_inst_executed_per_inst_executed.ratio                                                                 32
+    smsp__throughput.avg.pct_of_peak_sustained_elapsed                                                            (!) n/a
+    smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct                          %                           0.32
+    smsp__warp_issue_stalled_imc_miss_per_warp_active.pct                                %                           0.04
+    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                           9.26
+    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                          10.56
+    smsp__warp_issue_stalled_no_instructions_per_warp_active.pct                                                  (!) n/a
+    smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct                            %                           0.00
+    smsp__warps_launched.sum                                                          warp                          8,192
+    ---------------------------------------------------------------------- --------------- ------------------------------    
+
+mysgemm_v7_plus(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-16 08:16:02, Context 1, Stream 7
+    Section: Command line profiler metrics
+    ---------------------------------------------------------------------- --------------- ------------------------------
+    dram__bytes_read.sum                                                             Mbyte                         145.49
+    dram__bytes_write.sum                                                            Mbyte                          22.56
+    l1tex__t_set_accesses.sum                                                                                 138,805,248
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                     2,076.70
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                        3,348
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                        1,159
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                      166,136
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.max                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.min                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum                                                            0
+    smsp__inst_executed_pipe_tensor.avg                                               inst                              0
+    smsp__inst_executed_pipe_tensor.max                                               inst                              0
+    smsp__inst_executed_pipe_tensor.min                                               inst                              0
+    smsp__inst_executed_pipe_tensor.sum                                               inst                              0
+    smsp__warps_active.avg                                                                                   9,767,471.10
+    smsp__warps_active.max                                                                                     10,811,241
+    smsp__warps_active.min                                                                                      9,226,704
+    smsp__warps_active.sum                                                                                  3,125,590,752
+    smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active                        %                          10.57
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct                        %                          22.32
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct                        %                             50
+    smsp__thread_inst_executed_per_inst_executed.ratio                                                                 32
+    smsp__throughput.avg.pct_of_peak_sustained_elapsed                                                            (!) n/a
+    smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct                          %                           0.32
+    smsp__warp_issue_stalled_imc_miss_per_warp_active.pct                                %                           0.04
+    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                           8.67
+    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                          10.53
+    smsp__warp_issue_stalled_no_instructions_per_warp_active.pct                                                  (!) n/a
+    smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct                            %                           0.00
+    smsp__warps_launched.sum                                                          warp                          8,192
+    ---------------------------------------------------------------------- --------------- ------------------------------
+ 
+MSxNSxKS = 64x64x16
+mysgemm_v7(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-21 02:23:03, Context 1, Stream 7
+    Section: Command line profiler metrics
+    ---------------------------------------------------------------------- --------------- ------------------------------
+    dram__bytes_read.sum                                                             Mbyte                         153.24
+    dram__bytes_write.sum                                                            Mbyte                          15.73
+    l1tex__t_set_accesses.sum                                                                                 138,936,320
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                     1,697.97
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                        2,660
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                          600
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                      135,838
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.max                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.min                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum                                                            0
+    smsp__inst_executed_pipe_tensor.avg                                               inst                              0
+    smsp__inst_executed_pipe_tensor.max                                               inst                              0
+    smsp__inst_executed_pipe_tensor.min                                               inst                              0
+    smsp__inst_executed_pipe_tensor.sum                                               inst                              0
+    smsp__warps_active.avg                                                                                   9,759,655.08
+    smsp__warps_active.max                                                                                     10,838,965
+    smsp__warps_active.min                                                                                      9,264,019
+    smsp__warps_active.sum                                                                                  3,123,089,627
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.av           cycle                              0
+    g                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.ma           cycle                              0
+    x                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.mi           cycle                              0
+    n                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.su           cycle                              0
+    m                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.avg              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.max              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.min              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.sum              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.a           cycle                   2,374,524.65
+    vg                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.m           cycle                   2,710,204.50
+    ax                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.m           cycle                   2,333,092.50
+    in                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.s           cycle                     94,980,986
+    um                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.avg            cycle                   2,374,527.19
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.max            cycle                   2,710,204.50
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.min            cycle                   2,333,092.50
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.sum            cycle                  94,981,087.50
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.avg             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.max             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.min             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.sum             cycle                              0
     smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active                        %                          10.54
     smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct                        %                          22.41
     smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct                        %                             50
@@ -162,12 +295,77 @@ mysgemm_v7(int, int, int, float, float const*, float const*, float, float*), 202
     smsp__throughput.avg.pct_of_peak_sustained_elapsed                                                            (!) n/a
     smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct                          %                           0.32
     smsp__warp_issue_stalled_imc_miss_per_warp_active.pct                                %                           0.04
-    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                           9.32
-    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                          10.58
+    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                           9.16
+    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                          10.50
     smsp__warp_issue_stalled_no_instructions_per_warp_active.pct                                                  (!) n/a
     smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct                            %                           0.00
     smsp__warps_launched.sum                                                          warp                          8,192
-    ---------------------------------------------------------------------- --------------- ------------------------------    
+    ---------------------------------------------------------------------- --------------- ------------------------------
+
+MSxNSxKS = 64x64x16
+mysgemm_v7_ano2(int, int, int, float, float const*, float const*, float, float*), 2025-Jul-21 02:34:21, Context 1, Stream 7
+    Section: Command line profiler metrics
+    ---------------------------------------------------------------------- --------------- ------------------------------
+    dram__bytes_read.sum                                                             Mbyte                         126.28
+    dram__bytes_write.sum                                                            Mbyte                          14.42
+    l1tex__t_set_accesses.sum                                                                                  12,845,056
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                       932.69
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                        1,361
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                          531
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                       74,615
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg                                                   157,286.40
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.max                                                      172,032
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.min                                                      147,456
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum                                                   12,582,912
+    smsp__inst_executed_pipe_tensor.avg                                               inst                              0
+    smsp__inst_executed_pipe_tensor.max                                               inst                              0
+    smsp__inst_executed_pipe_tensor.min                                               inst                              0
+    smsp__inst_executed_pipe_tensor.sum                                               inst                              0
+    smsp__warps_active.avg                                                                                  18,954,097.96
+    smsp__warps_active.max                                                                                     21,580,619
+    smsp__warps_active.min                                                                                     17,520,149
+    smsp__warps_active.sum                                                                                  6,065,311,347
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.av           cycle                              0
+    g                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.ma           cycle                              0
+    x                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.mi           cycle                              0
+    n                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_barrier_allocation.su           cycle                              0
+    m                                                                                                                    
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.avg              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.max              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.min              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_cta_allocation.sum              cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.a           cycle                   1,626,314.04
+    vg                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.m           cycle                   1,740,681.50
+    ax                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.m           cycle                      1,591,404
+    in                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_register_allocation.s           cycle                  65,052,561.50
+    um                                                                                                                   
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.avg            cycle                       1,295.40
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.max            cycle                         20,954
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.min            cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_shmem_allocation.sum            cycle                         51,816
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.avg             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.max             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.min             cycle                              0
+    tpc__warp_launch_cycles_stalled_shader_cs_reason_warp_allocation.sum             cycle                              0
+    smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active                        %                           6.45
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct                        %                         102.39
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct                        %                            100
+    smsp__thread_inst_executed_per_inst_executed.ratio                                                                 32
+    smsp__throughput.avg.pct_of_peak_sustained_elapsed                                                            (!) n/a
+    smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct                          %                           0.42
+    smsp__warp_issue_stalled_imc_miss_per_warp_active.pct                                %                           0.03
+    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                           8.50
+    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                          15.82
+    smsp__warp_issue_stalled_no_instructions_per_warp_active.pct                                                  (!) n/a
+    smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct                            %                           0.02
+    smsp__warps_launched.sum                                                          warp                          8,192
+    ---------------------------------------------------------------------- --------------- ------------------------------
 
 
 指标	         mysgemm_v5_ano	   mysgemm_v5_ano2	mysgemm_v5_ano2_pro  mysgemm_v7
@@ -180,6 +378,12 @@ warp 发射停滞 - MIO 节流（%）	  62.02	        56.10	             47.79  
 
 
 分析：
+
+mySgemm_v7_ano在 DRAM 复用、全局内存利用率、资源分配上更优，但L1 写 Bank 冲突和内存接口停滞是致命缺陷；mySgemm_v7并行度低且内存浪费严重，但无写冲突。
+tpc__warp_launch_cycles_stalled...shmem_allocation.sum：v7为 95,620,542 周期，v7_ano仅 155,962 周期（减少 99.8%）。
+说明v7的共享内存使用可能超过硬件限制（如单 SM 共享内存不足），导致 Warp 等待分配；v7_ano的共享内存用量更合理，无明显分配停滞。
+
+smsp__sass_average_data_bytes_per_sector_mem_global_op_ld, smsp__sass_average_data_bytes_per_sector_mem_global_op_st, v7_ano的全局内存访问（读写）更紧凑，扇区利用率更高，带宽利用率远高于v7
 
 各版本的性能提升可归纳为以下优化方向，且效果逐步叠加：
 消除共享内存存储冲突（v5_ano2_pro → v7）：通过转置存储等方式将l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum从千万级降至 0，解决片上内存瓶颈。

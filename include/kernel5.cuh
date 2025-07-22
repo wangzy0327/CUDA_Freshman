@@ -227,11 +227,14 @@ void mysgemm_v5_ano2_pro(int M, int N, int K, float alpha, const float* A, const
     float tmp[4] = {0.,0.,0.,0.};
     float a00;
     for(int k_count = 0;k_count < K;k_count+=KS){
+        if(k_count == 0 && bx ==0 && by == 0){
+            printf("threadIdx %d = transpose to (%d,%d) bank(%d),(%d,%d) bank(%d),(%d,%d) bank(%d),(%d,%d) bank(%d) \n",tx,(row+col0)%NS,row,((row<<5)+((row+col0)%NS))%32,(row+col1)%NS,row,((row<<5)+((row+col1)%NS))%32,(row+col2)%NS,row,((row<<5)+((row+col2)%NS))%32,(row+col3)%NS,row,((row<<5)+((row+col3)%NS))%32);
+        }
         sa5(row,col0) = A(row,col0);
         sa5(row,col1) = A(row,col1);
         sa5(row,col2) = A(row,col2);
         sa5(row,col3) = A(row,col3);
-        // printf("(iy:ix) = (%d,%d) handle (%d,%d) transpose to (%d,%d) \n",row,col0,row,(row+col0)%NS,(row+col0)%NS,row);
+
         sb5((row+col0)%NS,row) = B(row,(row+col0)%NS);
         sb5((row+col1)%NS,row) = B(row,(row+col1)%NS);
         sb5((row+col2)%NS,row) = B(row,(row+col2)%NS);
@@ -254,3 +257,57 @@ void mysgemm_v5_ano2_pro(int M, int N, int K, float alpha, const float* A, const
     C(row,col2) = alpha * tmp[2] + beta * C(row,col2);
     C(row,col3) = alpha * tmp[3] + beta * C(row,col3);
 }
+/*
+
+mysgemm_v5_ano2_pro
+
+warp内bank store 不冲突
+
+threadIdx 0 = transpose to (0,0) bank(0),(1,0) bank(1),(2,0) bank(2),(3,0) bank(3) 
+threadIdx 1 = transpose to (1,1) bank(1),(2,1) bank(2),(3,1) bank(3),(4,1) bank(4) 
+threadIdx 2 = transpose to (2,2) bank(2),(3,2) bank(3),(4,2) bank(4),(5,2) bank(5) 
+threadIdx 3 = transpose to (3,3) bank(3),(4,3) bank(4),(5,3) bank(5),(6,3) bank(6) 
+threadIdx 4 = transpose to (4,4) bank(4),(5,4) bank(5),(6,4) bank(6),(7,4) bank(7) 
+threadIdx 5 = transpose to (5,5) bank(5),(6,5) bank(6),(7,5) bank(7),(8,5) bank(8) 
+threadIdx 6 = transpose to (6,6) bank(6),(7,6) bank(7),(8,6) bank(8),(9,6) bank(9) 
+threadIdx 7 = transpose to (7,7) bank(7),(8,7) bank(8),(9,7) bank(9),(10,7) bank(10) 
+threadIdx 8 = transpose to (8,8) bank(8),(9,8) bank(9),(10,8) bank(10),(11,8) bank(11) 
+threadIdx 9 = transpose to (9,9) bank(9),(10,9) bank(10),(11,9) bank(11),(12,9) bank(12) 
+threadIdx 10 = transpose to (10,10) bank(10),(11,10) bank(11),(12,10) bank(12),(13,10) bank(13) 
+threadIdx 11 = transpose to (11,11) bank(11),(12,11) bank(12),(13,11) bank(13),(14,11) bank(14) 
+threadIdx 12 = transpose to (12,12) bank(12),(13,12) bank(13),(14,12) bank(14),(15,12) bank(15) 
+threadIdx 13 = transpose to (13,13) bank(13),(14,13) bank(14),(15,13) bank(15),(16,13) bank(16) 
+threadIdx 14 = transpose to (14,14) bank(14),(15,14) bank(15),(16,14) bank(16),(17,14) bank(17) 
+threadIdx 15 = transpose to (15,15) bank(15),(16,15) bank(16),(17,15) bank(17),(18,15) bank(18) 
+threadIdx 16 = transpose to (16,16) bank(16),(17,16) bank(17),(18,16) bank(18),(19,16) bank(19) 
+threadIdx 17 = transpose to (17,17) bank(17),(18,17) bank(18),(19,17) bank(19),(20,17) bank(20) 
+threadIdx 18 = transpose to (18,18) bank(18),(19,18) bank(19),(20,18) bank(20),(21,18) bank(21) 
+threadIdx 19 = transpose to (19,19) bank(19),(20,19) bank(20),(21,19) bank(21),(22,19) bank(22) 
+threadIdx 20 = transpose to (20,20) bank(20),(21,20) bank(21),(22,20) bank(22),(23,20) bank(23) 
+threadIdx 21 = transpose to (21,21) bank(21),(22,21) bank(22),(23,21) bank(23),(24,21) bank(24) 
+threadIdx 22 = transpose to (22,22) bank(22),(23,22) bank(23),(24,22) bank(24),(25,22) bank(25) 
+threadIdx 23 = transpose to (23,23) bank(23),(24,23) bank(24),(25,23) bank(25),(26,23) bank(26) 
+threadIdx 24 = transpose to (24,24) bank(24),(25,24) bank(25),(26,24) bank(26),(27,24) bank(27) 
+threadIdx 25 = transpose to (25,25) bank(25),(26,25) bank(26),(27,25) bank(27),(28,25) bank(28) 
+threadIdx 26 = transpose to (26,26) bank(26),(27,26) bank(27),(28,26) bank(28),(29,26) bank(29) 
+threadIdx 27 = transpose to (27,27) bank(27),(28,27) bank(28),(29,27) bank(29),(30,27) bank(30) 
+threadIdx 28 = transpose to (28,28) bank(28),(29,28) bank(29),(30,28) bank(30),(31,28) bank(31) 
+threadIdx 29 = transpose to (29,29) bank(29),(30,29) bank(30),(31,29) bank(31),(0,29) bank(0) 
+threadIdx 30 = transpose to (30,30) bank(30),(31,30) bank(31),(0,30) bank(0),(1,30) bank(1) 
+threadIdx 31 = transpose to (31,31) bank(31),(0,31) bank(0),(1,31) bank(1),(2,31) bank(2)
+
+warp间流水线并行
+
+threadIdx 32 = transpose to (4,0) bank(4),(5,0) bank(5),(6,0) bank(6),(7,0) bank(7) 
+threadIdx 33 = transpose to (5,1) bank(5),(6,1) bank(6),(7,1) bank(7),(8,1) bank(8) 
+threadIdx 34 = transpose to (6,2) bank(6),(7,2) bank(7),(8,2) bank(8),(9,2) bank(9) 
+threadIdx 35 = transpose to (7,3) bank(7),(8,3) bank(8),(9,3) bank(9),(10,3) bank(10) 
+threadIdx 36 = transpose to (8,4) bank(8),(9,4) bank(9),(10,4) bank(10),(11,4) bank(11) 
+threadIdx 37 = transpose to (9,5) bank(9),(10,5) bank(10),(11,5) bank(11),(12,5) bank(12) 
+threadIdx 38 = transpose to (10,6) bank(10),(11,6) bank(11),(12,6) bank(12),(13,6) bank(13) 
+threadIdx 39 = transpose to (11,7) bank(11),(12,7) bank(12),(13,7) bank(13),(14,7) bank(14) 
+threadIdx 40 = transpose to (12,8) bank(12),(13,8) bank(13),(14,8) bank(14),(15,8) bank(15)
+
+
+
+*/
