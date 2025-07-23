@@ -165,7 +165,6 @@ void mysgemm_v7_ano(int M, int N, int K, float alpha, const float* A, const floa
     int row_a = tx%32, col_a = ((tx/32)&7)<<1; //[0,1,...,31] col_a [0,2,4,...14,]
     // int row_b = tx%32, col_b = ((tx>>5)&7)<<1;  //16 x 64 row_b [0,1,2,...,31]  col_b [0,2,...14]
     int row_b[2],col_b[2];
-    int row_warp_offset = tx/32; // [0-8]
     row_b[0] = tx%32;
     row_b[1] = row_b[0]+32;  // row_b[0] [0,1,...,31] row_b[1] [32,33,...,63]
     col_b[0] = ((tx>>5)&7)<<1; col_b[1] = col_b[0]+1; // col_b[0] [0,2,...,14] col_b[1] [1,3,5,...,15]
@@ -232,13 +231,13 @@ void mysgemm_v7_ano(int M, int N, int K, float alpha, const float* A, const floa
     vstore(&C(row_s,col_s+3), Cres[3])
 }
 
+// M=N=K=2048: GPU mySgemm Average elasped time: 0.001972 second, performance: 8713.456222 GFLOPS.
 __global__  __launch_bounds__(256)
 void mysgemm_v7_ano_plus(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     int lda = M, ldb = K, ldc = M;
     int tx = threadIdx.x;
     int bx = blockIdx.x, by = blockIdx.y;
     int row_a = tx%64, col_a = (tx/64)<<2; //[0,1,...,63] col_a [0,4,8,12]
-
     int col_b = tx%64, row_b = (tx/64)<<2; // [0,4,8,12]
     int row_s = (tx&0x0F)<<2; // [0,4,8,...,60] 16
     int col_s = ((tx>>4)&0x0F)<<2; // [0,4,8,...,60] 16
@@ -251,27 +250,21 @@ void mysgemm_v7_ano_plus(int M, int N, int K, float alpha, const float* A, const
     float4 Av, Bv, Cv[4], Cres[4];
     memset(Cres, 0, sizeof(Cres));
     for (int k_count = 0; k_count<K; k_count+=KS_7_2){
-        // if(k_count == 0 && bx == 0 && by == 0){
-            // printf("k_count : %d ,block :(%d,%d) MatrixA threadIdx : %d  =   transpose to (%d,%d) bank(%d),(%d,%d) bank(%d),(%d,%d) bank(%d),(%d,%d) bank(%d) \n",k_count, bx,by, tx,\
-            // row_a,col_a,row_a%32,\
-            // row_a,col_a+1,row_a%32,\
-            // row_a,col_a+2,row_a%32,\
-            // row_a,col_a+3,row_a%32);
-            printf("k_count : %d ,block :(%d,%d) MatrixB threadIdx : %d  =   transpose to (%d,%d) bank(%d),(%d,%d) bank(%d),(%d,%d) bank(%d),(%d,%d) bank(%d) \n",k_count, bx,by, tx,\
-            col_b,row_b,col_b%32,\
-            col_b,row_b+1,col_b%32,\
-            col_b,row_b+2,col_b%32,\
-            col_b,row_b+3,col_b%32);            
-        // }
+      
         sa7(row_a,col_a) = A(row_a,col_a);
         sa7(row_a,col_a+1) = A(row_a,col_a+1);
         sa7(row_a,col_a+2) = A(row_a,col_a+2);
         sa7(row_a,col_a+3) = A(row_a,col_a+3);
 
-        sb7(col_b,row_b) = B(row_b,col_b);
-        sb7(col_b,row_b+1) = B(row_b+1,col_b);
-        sb7(col_b,row_b+2) = B(row_b+2,col_b);
-        sb7(col_b,row_b+3) = B(row_b+3,col_b);
+        Bv = *((float4*)(&B(row_b,col_b)));
+        sb7(col_b,row_b) = Bv.x;
+        sb7(col_b,row_b+1) = Bv.y;
+        sb7(col_b,row_b+2) = Bv.z;
+        sb7(col_b,row_b+3) = Bv.w;
+        // sb7(col_b,row_b) = B(row_b,col_b);
+        // sb7(col_b,row_b+1) = B(row_b+1,col_b);
+        // sb7(col_b,row_b+2) = B(row_b+2,col_b);
+        // sb7(col_b,row_b+3) = B(row_b+3,col_b);
 
         A+=lda16;B+=16;
         __syncthreads();

@@ -141,11 +141,15 @@ __global__ void reduceSmem(int * g_idata,int * g_odata,unsigned int n)
 }
 __inline__ __device__ int warpReduce(int localSum)
 {
-    localSum += __shfl_xor(localSum, 16);
-    localSum += __shfl_xor(localSum, 8);
-    localSum += __shfl_xor(localSum, 4);
-    localSum += __shfl_xor(localSum, 2);
-    localSum += __shfl_xor(localSum, 1);
+
+#if __CUDA_ARCH__ >= 300
+    unsigned int mask = 0xFFFFFFFF;
+    localSum += __shfl_xor_sync(mask, localSum, 16);
+    localSum += __shfl_xor_sync(mask, localSum, 8);
+    localSum += __shfl_xor_sync(mask, localSum, 4);
+    localSum += __shfl_xor_sync(mask, localSum, 2);
+    localSum += __shfl_xor_sync(mask, localSum, 1);
+#endif
 
     return localSum;
 }

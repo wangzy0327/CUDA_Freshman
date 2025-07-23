@@ -13,7 +13,6 @@
 __global__  __launch_bounds__(1024)
 void mysgemm_v4(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     int tx = threadIdx.x, ty = threadIdx.y;
-    int bx = blockIdx.x, by = blockIdx.y;
     int ix = blockIdx.x * blockDim.x + tx;  // 全局行索引 (0 ≤ ix < M)
     int iy = blockIdx.y * blockDim.y + ty;  // 全局列索引 (0 ≤ iy < N)
 

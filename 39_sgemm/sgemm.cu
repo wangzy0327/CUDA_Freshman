@@ -29,7 +29,6 @@ void sgemm_CPU(int M, int N, int K, float alpha, const float * MatA, const float
 
 void testThreadIdx(){
   int tx_size = 256;
-  int bx = 0;int by = 0;
   for(int tx = 0;tx < tx_size;tx++){
     int row_b = tx%32, col_b = ((tx>>5)&7)<<1;  //16 x 64 row_b [0,1,2,...,31]  col_b [0,2,...,14]
     printf("kernel threadIdx : %d (%d,%d) =  (%d,%d),(%d,%d),(%d,%d),(%d,%d) transpose to (%d,%d),(%d,%d),(%d,%d),(%d,%d) \n", tx,\
@@ -196,9 +195,9 @@ int main(int argc,char **argv)
   printf("--------------------------------------------\n");
   
 
-  // for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
+  for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
   // for(int i_count = 0;i_count < upper_limit;i_count++){
-  for(int i_count = 0;i_count < 1;i_count++){
+  // for(int i_count = 0;i_count < 1;i_count++){
     m=n=k=SIZE[i_count];
     printf("\nM=N=K=%d:\n",m);
     //warmup cuBLAS 库在第一次调用时需要初始化内部状态（如加载内核、分配内部缓冲区等），这会带来额外的开销
