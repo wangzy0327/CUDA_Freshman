@@ -124,7 +124,7 @@ void test_mysgemm_v7(int M, int N, int K, float alpha, const float* A, const flo
     dim3 blockDim(256);//x4
     // dim3 blockDim(64);//x4
     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v7_ano<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    mysgemm_v7_ano_plus<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
     cudaDeviceSynchronize();
 }
 
@@ -196,9 +196,9 @@ int main(int argc,char **argv)
   printf("--------------------------------------------\n");
   
 
-  for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
+  // for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
   // for(int i_count = 0;i_count < upper_limit;i_count++){
-  // for(int i_count = 0;i_count < 1;i_count++){
+  for(int i_count = 0;i_count < 1;i_count++){
     m=n=k=SIZE[i_count];
     printf("\nM=N=K=%d:\n",m);
     //warmup cuBLAS 库在第一次调用时需要初始化内部状态（如加载内核、分配内部缓冲区等），这会带来额外的开销
