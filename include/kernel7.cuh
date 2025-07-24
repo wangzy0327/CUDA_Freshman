@@ -232,13 +232,15 @@ void mysgemm_v7_ano(int M, int N, int K, float alpha, const float* A, const floa
 }
 
 // M=N=K=2048: GPU mySgemm Average elasped time: 0.001972 second, performance: 8713.456222 GFLOPS.
+// M=N=K=6144:GPU mySgemm Average elasped time: 0.047561 second, performance: 9752.941594 GFLOPS
 __global__  __launch_bounds__(256)
 void mysgemm_v7_ano_plus(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     int lda = M, ldb = K, ldc = M;
     int tx = threadIdx.x;
     int bx = blockIdx.x, by = blockIdx.y;
     int row_a = tx%64, col_a = (tx/64)<<2; //[0,1,...,63] col_a [0,4,8,12]
-    int col_b = tx%64, row_b = (tx/64)<<2; // [0,4,8,12]
+    // int row_a = (tx&15)<<2, col_a = (tx/64); //[0,4,...,60] col_a [0,1,...,15]
+    int col_b = tx%64, row_b = (tx/64)<<2; //[0,1,...,63] [0,4,8,12]
     int row_s = (tx&0x0F)<<2; // [0,4,8,...,60] 16
     int col_s = ((tx>>4)&0x0F)<<2; // [0,4,8,...,60] 16
     int lda16 = lda<<4;
@@ -255,8 +257,11 @@ void mysgemm_v7_ano_plus(int M, int N, int K, float alpha, const float* A, const
         sa7(row_a,col_a+1) = A(row_a,col_a+1);
         sa7(row_a,col_a+2) = A(row_a,col_a+2);
         sa7(row_a,col_a+3) = A(row_a,col_a+3);
+        // vload(Av,&A(row_a,col_a));
+        // ((float4*)sa7)[tx] = Av;
 
         Bv = *((float4*)(&B(row_b,col_b)));
+        // vload(Bv,&B(row_b,col_b));
         sb7(col_b,row_b) = Bv.x;
         sb7(col_b,row_b+1) = Bv.y;
         sb7(col_b,row_b+2) = Bv.z;
@@ -271,30 +276,112 @@ void mysgemm_v7_ano_plus(int M, int N, int K, float alpha, const float* A, const
         #pragma unroll
         for (int inner_k_count=0;inner_k_count<KS_7_2;inner_k_count++){
             //四路bank
-            vload(Av, &sa7(row_s,inner_k_count))
-            vload(Bv, &sb7(col_s,inner_k_count))
-            vscal(Cres[0], Av, Bv.x)
-            vscal(Cres[1], Av, Bv.y)
-            vscal(Cres[2], Av, Bv.z)
-            vscal(Cres[3], Av, Bv.w)
+            vload(Av, &sa7(row_s,inner_k_count));
+            vload(Bv, &sb7(col_s,inner_k_count));
+            vscal(Cres[0], Av, Bv.x);
+            vscal(Cres[1], Av, Bv.y);
+            vscal(Cres[2], Av, Bv.z);
+            vscal(Cres[3], Av, Bv.w);
         }
         __syncthreads();
     }
-    vload(Cv[0], &C(row_s,col_s))
-    vload(Cv[1], &C(row_s,col_s+1))
-    vload(Cv[2], &C(row_s,col_s+2))
-    vload(Cv[3], &C(row_s,col_s+3))
-    simd_axpby(Cres[0],alpha,Cres[0],beta,Cv[0])
-    simd_axpby(Cres[1],alpha,Cres[1],beta,Cv[1])
-    simd_axpby(Cres[2],alpha,Cres[2],beta,Cv[2])
-    simd_axpby(Cres[3],alpha,Cres[3],beta,Cv[3])
+    vload(Cv[0], &C(row_s,col_s));
+    vload(Cv[1], &C(row_s,col_s+1));
+    vload(Cv[2], &C(row_s,col_s+2));
+    vload(Cv[3], &C(row_s,col_s+3));
+    simd_axpby(Cres[0],alpha,Cres[0],beta,Cv[0]);
+    simd_axpby(Cres[1],alpha,Cres[1],beta,Cv[1]);
+    simd_axpby(Cres[2],alpha,Cres[2],beta,Cv[2]);
+    simd_axpby(Cres[3],alpha,Cres[3],beta,Cv[3]);
 
-    vstore(&C(row_s,col_s), Cres[0])
-    vstore(&C(row_s,col_s+1), Cres[1])
-    vstore(&C(row_s,col_s+2), Cres[2])
-    vstore(&C(row_s,col_s+3), Cres[3])
+    vstore(&C(row_s,col_s), Cres[0]);
+    vstore(&C(row_s,col_s+1), Cres[1]);
+    vstore(&C(row_s,col_s+2), Cres[2]);
+    vstore(&C(row_s,col_s+3), Cres[3]);
 }
 
+
+// M=N=K=2048: GPU mySgemm Average elasped time: 0.001972 second, performance: 8713.456222 GFLOPS.
+// M=N=K=6144:GPU mySgemm Average elasped time: 0.046317 second, performance: 10014.905670 GFLOPS.
+__global__  __launch_bounds__(256)
+void mysgemm_v7_ano_plus2(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    int lda = M, ldb = K, ldc = M;
+    int tx = threadIdx.x;
+    int bx = blockIdx.x, by = blockIdx.y;
+    int row_a = tx%64, col_a = (tx/64)<<2; //[0,1,...,63] col_a [0,4,8,12]
+    // int row_a = (tx&15)<<2, col_a = (tx/64); //[0,4,...,60] col_a [0,1,...,15]
+    int col_b = tx%64, row_b = (tx/64)<<2; //[0,1,...,63] [0,4,8,12]
+    int row_s = (tx&0x0F)<<2; // [0,4,8,...,60] 16
+    int col_s = ((tx>>4)&0x0F)<<2; // [0,4,8,...,60] 16
+    int lda16 = lda<<4;
+    A = &A((bx<<6),0);
+    B = &B(0,(by<<6));
+    C = &C((bx<<6),(by<<6));//the TB size is 64.
+    __shared__ float sa7[KS_7_2*MS_7];
+    __shared__ float sb7[KS_7_2*NS_7];
+    float4 Av, Bv, Cv[4], Cres[4];
+    int offset = tx/32;
+    memset(Cres, 0, sizeof(Cres));
+    for (int k_count = 0; k_count<K; k_count+=KS_7_2){
+      
+        sa7(row_a,col_a) = A(row_a,col_a);
+        sa7(row_a,col_a+1) = A(row_a,col_a+1);
+        sa7(row_a,col_a+2) = A(row_a,col_a+2);
+        sa7(row_a,col_a+3) = A(row_a,col_a+3);
+        // vload(Av,&A(row_a,col_a));
+        // ((float4*)sa7)[tx] = Av;
+
+        vload(Bv,&B(row_b,col_b));
+        if((offset)%4 == 0){
+            sb7(col_b,row_b) = Bv.x;
+            sb7(col_b,row_b+1) = Bv.y;
+            sb7(col_b,row_b+2) = Bv.z;
+            sb7(col_b,row_b+3) = Bv.w;
+        }else if((offset)%4 == 1){
+            sb7(col_b,row_b+1) = Bv.y;
+            sb7(col_b,row_b+2) = Bv.z;
+            sb7(col_b,row_b+3) = Bv.w;
+            sb7(col_b,row_b) = Bv.x;
+        }else if((offset)%4 == 2){
+            sb7(col_b,row_b+2) = Bv.z;
+            sb7(col_b,row_b+3) = Bv.w;
+            sb7(col_b,row_b) = Bv.x;
+            sb7(col_b,row_b+1) = Bv.y;
+        }else if((offset)%4 == 3){
+            sb7(col_b,row_b+3) = Bv.w;
+            sb7(col_b,row_b) = Bv.x;
+            sb7(col_b,row_b+1) = Bv.y;
+            sb7(col_b,row_b+2) = Bv.z;
+        }
+
+        A+=lda16;B+=16;
+        __syncthreads();
+        #pragma unroll
+        for (int inner_k_count=0;inner_k_count<KS_7_2;inner_k_count++){
+            //四路bank
+            vload(Av, &sa7(row_s,inner_k_count));
+            vload(Bv, &sb7(col_s,inner_k_count));
+            vscal(Cres[0], Av, Bv.x);
+            vscal(Cres[1], Av, Bv.y);
+            vscal(Cres[2], Av, Bv.z);
+            vscal(Cres[3], Av, Bv.w);
+        }
+        __syncthreads();
+    }
+    vload(Cv[0], &C(row_s,col_s));
+    vload(Cv[1], &C(row_s,col_s+1));
+    vload(Cv[2], &C(row_s,col_s+2));
+    vload(Cv[3], &C(row_s,col_s+3));
+    simd_axpby(Cres[0],alpha,Cres[0],beta,Cv[0]);
+    simd_axpby(Cres[1],alpha,Cres[1],beta,Cv[1]);
+    simd_axpby(Cres[2],alpha,Cres[2],beta,Cv[2]);
+    simd_axpby(Cres[3],alpha,Cres[3],beta,Cv[3]);
+
+    vstore(&C(row_s,col_s), Cres[0]);
+    vstore(&C(row_s,col_s+1), Cres[1]);
+    vstore(&C(row_s,col_s+2), Cres[2]);
+    vstore(&C(row_s,col_s+3), Cres[3]);
+}
 
 //M=N=K=2048 MS=NS=64 KS=16 2048 float(8k) SM share mem(96k) block share mem(48k) Block dim  = 256 per SM max 12 block
 //grid.dim = 2048*2048/64/64 = 1024 block / 80 SM  per SM = 12.8 block ,  12 block can active improve SM warp active numbers
@@ -302,7 +389,8 @@ void mysgemm_v7_ano_plus(int M, int N, int K, float alpha, const float* A, const
 //M=N=K=2048:
 // GPU cublas Average elasped time: 0.001439 second, performance: 11937.892956 GFLOPS.
 // GPU mySgemm Average elasped time: 0.001863 second, performance: 9220.625443 GFLOPS.
-
+// M=N=K=2048:
+// GPU mySgemm Average elasped time: 0.001968 second, performance: 8727.763788 GFLOPS.
 __global__  __launch_bounds__(256)
 void mysgemm_v7_ano2(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
     int lda = M, ldb = K, ldc = M;
@@ -349,8 +437,8 @@ void mysgemm_v7_ano2(int M, int N, int K, float alpha, const float* A, const flo
     simd_axpby(Cres[2],alpha,Cres[2],beta,Cv[2]);
     simd_axpby(Cres[3],alpha,Cres[3],beta,Cv[3]);
 
-    vstore(&C(row_a,col_c), Cres[0])
-    vstore(&C(row_a,col_c+1), Cres[1])
-    vstore(&C(row_a,col_c+2), Cres[2])
-    vstore(&C(row_a,col_c+3), Cres[3])
+    vstore(&C(row_a,col_c), Cres[0]);
+    vstore(&C(row_a,col_c+1), Cres[1]);
+    vstore(&C(row_a,col_c+2), Cres[2]);
+    vstore(&C(row_a,col_c+3), Cres[3]);
 }

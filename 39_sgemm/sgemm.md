@@ -63,7 +63,7 @@ For detailed performance comparison, please see [here](./sgemm-metrics.txt).
 
 Since our target machine supports a 128-bit transaction from the DRAM, we can apply the vectorized load operation using the ```float4``` data type. kernel6 performs vector load/store based on kernel5 native version
 
-## Kernel 7 ( Ms,Ns,Ks= 64,64,64 tilling)
+## Kernel 7 ( Ms,Ns,Ks= 64,64,64 tilling) ( Ms,Ns,Ks= 64,64,16 tilling {Mr,Nr}= {4,4})
 
 [source code](../include/kernel7.cuh)
 
@@ -74,3 +74,9 @@ The mysgemm_v7_plus version uses float2 vectorization for shared memory matrix m
 mysgemm_v7_ano with inter-warp conflicts. [sketch-diagram](../imgs/warp-with-conflict.jpg)
 
 Considering there are sufficient registers (64K) for a TB while we only assign 256 threads for each TB, it should be safe, in terms of the performance, for us to assign more workloads to each thread. Now we ask each thread to compute a `4x4` sub-matrix of `C` so we gain massive data re-use at the register level compared with the previous step. mysgemm_v7_ano2  with the parameter set ```{Ms,Ns,Ks}={64,64,16}```. Without increasing the size of shared memory (ensuring that multiple warps are active on the SM at the same time), the compute-to-memory ratio of the compute unit is increased, and access to global memory is reduced by reusing registers (which also reduces the use of shared memory and reduces bank conflicts).
+
+## Kernel 8 ( Ms,Ns,Ks = 128,128,8 tilling {Mr,Nr}= {8,8})
+
+[source code](../include/kernel8.cuh)
+Assign more workloads for each TB AND each thread.
+
