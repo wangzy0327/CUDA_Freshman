@@ -353,7 +353,6 @@ void mysgemm_v7_ano_plus2(int M, int N, int K, float alpha, const float* A, cons
             sb7(col_b,row_b+1) = Bv.y;
             sb7(col_b,row_b+2) = Bv.z;
         }
-
         A+=lda16;B+=16;
         __syncthreads();
         #pragma unroll

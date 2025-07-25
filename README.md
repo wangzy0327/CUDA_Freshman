@@ -42,4 +42,3 @@
 - [6.4 重叠GPU和CPU的执行](http://www.face2ai.com/CUDA-F-6-4-重叠GPU和CPU的执行/)
 - [6.5 流回调](http://www.face2ai.com/CUDA-F-6-5-流回调/)
 - [矩阵乘](39_sgemm/sgemm.md)
-- [warp no store_data_bank_conflicts](imgs/warp-streamline.jpg)

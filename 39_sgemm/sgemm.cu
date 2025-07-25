@@ -123,8 +123,8 @@ void test_mysgemm_v7(int M, int N, int K, float alpha, const float* A, const flo
     dim3 blockDim(256);//x4
     // dim3 blockDim(64);//x4
     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v7_ano_plus<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
-    // mysgemm_v7_ano_plus2<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    // mysgemm_v7_ano_plus<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    mysgemm_v7_ano_plus2<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
     cudaDeviceSynchronize();
 }
 
@@ -136,6 +136,17 @@ void test_mysgemm_v8(int M, int N, int K, float alpha, const float* A, const flo
     // dim3 blockDim(64);//x4
     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
     mysgemm_v8<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    cudaDeviceSynchronize();
+}
+
+void test_mysgemm_v9(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    cudaDeviceSynchronize();
+    int blockX = 128, blockY = 128;
+    // dim3 blockDim(1024);
+    dim3 blockDim(256);//x4
+    // dim3 blockDim(64);//x4
+    dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
+    mysgemm_v9<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
     cudaDeviceSynchronize();
 }
 
@@ -246,6 +257,7 @@ int main(int argc,char **argv)
         case 6: test_mysgemm_v6(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 7: test_mysgemm_v7(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 8: test_mysgemm_v8(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
+        case 9: test_mysgemm_v9(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         default:
           break;
       }
