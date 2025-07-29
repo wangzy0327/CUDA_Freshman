@@ -80,3 +80,8 @@ Considering there are sufficient registers (64K) for a TB while we only assign 2
 [source code](../include/kernel8.cuh)
 Assign more workloads for each TB AND each thread.
 
+## Kernel 9 (Kernel 8 + warp-level tiling/parallelism)
+
+[source code](../include/kernel9.cuh)
+Since each warp contains 32 threads and the memory accesses to the same memory address in shared memory within the same warp can be coalesced, we introduce a `{Mw,Nw}`=`{4xMr,8xNr}` to benefit the warp-level parallelism. We refer readers to [(Huang, 2018)](https://arxiv.org/abs/1808.07984) for more details. The thread division of mysgemm_v8 version and mysgemm_v9 version at the warp-level is shown in the [figure](../imgs/warp-level_tilling.png).
+

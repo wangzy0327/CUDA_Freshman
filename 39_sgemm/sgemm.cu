@@ -146,7 +146,7 @@ void test_mysgemm_v9(int M, int N, int K, float alpha, const float* A, const flo
     dim3 blockDim(256);//x4
     // dim3 blockDim(64);//x4
     dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v9<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    mysgemm_v9_ano<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
     cudaDeviceSynchronize();
 }
 

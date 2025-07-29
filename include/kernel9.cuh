@@ -31,9 +31,93 @@
 //128x8x8
 //M=N=K=2048: GPU mySgemm Average elasped time: 0.002054 second, performance: 8365.732796 GFLOPS.
 //M=N=K=6144:GPU mySgemm Average elasped time: 0.044191 second, performance: 10496.541926 GFLOPS.
+//256 thread per block
+//v8 split data block(16x128) v9 split data block(64x32)
+//bank(32) per thread handle(8x8) v8 一次不冲突能处理的线程数是4（32/8）由于其列最多16，则一次性最多处理是2（16/8）,总共32个thread，需要几个周期 (128 row nums(32/(32/8)=8) 16 col nums(32/(16/8)=16) 8+16 = 24 nums data handle)
+//bank(32) per thread handle(8x8) v9(32 row nums(32/(32/8)=8  64 col nums (32/(32/8)=8) 8+8 = 16))
+//M=N=K=6144: GPU mySgemm Average elasped time: 0.038463 second, performance: 12059.777124 GFLOPS.
 __global__  __launch_bounds__(256)
 void mysgemm_v9_ano(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    int lda = M, ldb = K, ldc = M;
+    //获取每个block处理的数据块
+    int tx = threadIdx.x;
+    int bx = blockIdx.x, by = blockIdx.y;
+    A = &A(bx<<7,0);
+    B = &B(0,by<<7);
+    C = &C(bx<<7,by<<7);
+    //128x128/256 per thread handle 64 data split 64/float4 = 16
+    //128x8 share mem / 256 = 4
+    __shared__ float sa8[KS_8*MS_8];
+    __shared__ float sb8[KS_8*NS_8];
+    int row_a = (tx%32)<<2, col_a = tx/32; //row_a [0,4,8,...,120,124] col_a [0,1,2,...,7]
+    int col_b = tx%NS_8, row_b = (tx>>7)<<2; //col_b [0-127] row_b [0,4]
+    int lane_id = tx&31; //[0-31]
+    int warp_id = tx>>5; // [0-7]
+    //warp 处理 64x32(colxrow) 每个block内warp的维度是(2x4)
+    //每个block 内 warp索引
+    int warp_row = warp_id&3;    //[0-3]  总共8个warp(256/32) row 4, col 2
+    int warp_col = warp_id>>2;   //[0-1]
+    //每个warp 内 thread索引
+    //thread 处理 8x8 (colxrow) 每个warp内thread的维度是((64/8)x(32/8))=(8x4)
+    int row_w =  lane_id&3; //[0-3]
+    int col_w = lane_id>>2;//[0-7]
+    //每个thread内 (先确定warp的索引(x warp索引数据的偏移量)，再根据warp内的索引算出整体数据位置索引)
+    int row_c = (warp_row<<5) + (row_w<<3);
+    int col_c = (warp_col<<6) + (col_w<<3);
+    float4 Av1,Bv1,Av2,Bv2,Cv[16],Cres[16];
+    memset(Cres, 0, sizeof(Cres));
+    for(int k_count = 0;k_count < K;k_count+=KS_8){
+        Av1 = *((float4*)&A(row_a,col_a));
+        Bv1 = *((float4*)&B(row_b,col_b));
+        ((float4*)sa8)[tx] = Av1;
+        sb8(col_b,row_b) = Bv1.x;
+        sb8(col_b,row_b+1) = Bv1.y;
+        sb8(col_b,row_b+2) = Bv1.z;
+        sb8(col_b,row_b+3) = Bv1.w;
+        A +=(lda<<3); B+=8;
+        __syncthreads();
+        #pragma unroll
+        for(int inner_k = 0;inner_k < KS_8;inner_k++){
+            vload(Av1,&sa8(row_c,inner_k));
+            vload(Av2,&sa8(row_c+4,inner_k));
+            vload(Bv1,&sb8(col_c,inner_k));
+            vload(Bv2,&sb8(col_c+4,inner_k));
+            
+            //fma
+            vscal(Cres[0],Av1,Bv1.x);
+            vscal(Cres[1],Av2,Bv1.x);
+            vscal(Cres[2],Av1,Bv1.y);
+            vscal(Cres[3],Av2,Bv1.y);            
+            vscal(Cres[4],Av1,Bv1.z);
+            vscal(Cres[5],Av2,Bv1.z); 
+            vscal(Cres[6],Av1,Bv1.w);
+            vscal(Cres[7],Av2,Bv1.w);  
 
+            vscal(Cres[8],Av1,Bv2.x);
+            vscal(Cres[9],Av2,Bv2.x);
+            vscal(Cres[10],Av1,Bv2.y);
+            vscal(Cres[11],Av2,Bv2.y);            
+            vscal(Cres[12],Av1,Bv2.z);
+            vscal(Cres[13],Av2,Bv2.z); 
+            vscal(Cres[14],Av1,Bv2.w);
+            vscal(Cres[15],Av2,Bv2.w);                         
+        }
+        __syncthreads();
+    }
+    #pragma unroll
+    for(int i = 0;i < 8;i++){
+        vload(Cv[i*2],&C(row_c,col_c+i));
+        vload(Cv[i*2+1],&C(row_c+4,col_c+i));
+    }
+    #pragma unroll
+    for(int i = 0;i < 16;i++){
+        simd_axpby(Cres[i],alpha,Cres[i],beta,Cv[i]);
+    }
+    #pragma unroll
+    for(int i = 0;i < 8;i++){
+        vstore(&C(row_c,col_c+i), Cres[i*2]);
+        vstore(&C(row_c+4,col_c+i), Cres[i*2+1]);
+    }
 }
 
 // cache blocking version, without register-level data re-use
