@@ -7,3 +7,4 @@
 #include "kernel7.cuh"
 #include "kernel8.cuh"
 #include "kernel9.cuh"
+#include "kernel10.cuh"

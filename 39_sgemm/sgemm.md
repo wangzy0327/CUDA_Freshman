@@ -85,3 +85,8 @@ Assign more workloads for each TB AND each thread.
 [source code](../include/kernel9.cuh)
 Since each warp contains 32 threads and the memory accesses to the same memory address in shared memory within the same warp can be coalesced, we introduce a `{Mw,Nw}`=`{4xMr,8xNr}` to benefit the warp-level parallelism. We refer readers to [(Huang, 2018)](https://arxiv.org/abs/1808.07984) for more details. The thread division of mysgemm_v8 version and mysgemm_v9 version at the warp-level is shown in the [figure](../imgs/warp-level_tilling.png).
 
+## Kernel 10 (Kernel9 + prefetching ([Huang, 2018](https://arxiv.org/abs/1808.07984)))
+[source code](../include/kernel10.cuh)
+
+Execution level [diagram](../imgs/prefetch-exec.png) without prefetch and with prefetch.
+Hide loading delay timing [diagram](../imgs/load_compute_overlap.png).If vload and vscal are in the same inner_k loop and the order is hardcoded, the compiler will keep the order and will not enter the next round early.
