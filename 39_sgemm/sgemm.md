@@ -90,3 +90,9 @@ Since each warp contains 32 threads and the memory accesses to the same memory a
 
 Execution level [diagram](../imgs/prefetch-exec.png) without prefetch and with prefetch.
 Hide loading delay timing [diagram](../imgs/load_compute_overlap.png).If vload and vscal are in the same inner_k loop and the order is hardcoded, the compiler will keep the order and will not enter the next round early.
+
+## Kernel 11 (Kernel10 + double buffer to cancel a sync. ([Huang, 2018](https://arxiv.org/abs/1808.07984)))
+
+[source code](../include/kernel11.cuh)
+
+We introduce the double buffer strategy for the shared memory buffers to cancel an unnecessary syncthreads inside the loop body, pushing the performance to the limit.

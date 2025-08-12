@@ -161,6 +161,17 @@ void test_mysgemm_v10(int M, int N, int K, float alpha, const float* A, const fl
     cudaDeviceSynchronize();
 }
 
+void test_mysgemm_v11(int M, int N, int K, float alpha, const float* A, const float* B, float beta, float* C){
+    cudaDeviceSynchronize();
+    int blockX = 128, blockY = 128;
+    // dim3 blockDim(1024);
+    dim3 blockDim(256);//x4
+    // dim3 blockDim(64);//x4
+    dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
+    mysgemm_v11_ano<<<gridDim, blockDim>>>(M,N,K,alpha,A,B,beta,C);
+    cudaDeviceSynchronize();
+}
+
 int main(int argc,char **argv)
 {
   // set up device
@@ -269,6 +280,7 @@ int main(int argc,char **argv)
         case 8: test_mysgemm_v8(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 9: test_mysgemm_v9(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         case 10: test_mysgemm_v10(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
+        case 11: test_mysgemm_v11(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
         default:
           break;
       }
