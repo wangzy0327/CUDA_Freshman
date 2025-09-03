@@ -7,7 +7,9 @@
 #define MS_9 128
 #define NS_9 128
 #define KS_9 8
-
+#define WMMA_M 16
+#define WMMA_N 16
+#define WMMA_K 16
 
 //v1 += v2 * s3, vector scaling
 #define vscal(v1, v2, s3)\
@@ -47,10 +49,10 @@ void mysgemm_v9_ano(int M, int N, int K, float alpha, const float* A, const floa
     C = &C(bx<<7,by<<7);
     //128x128/256 per thread handle 64 data split 64/float4 = 16
     //128x8 share mem / 256 = 4
-    __shared__ float sa8[KS_8*MS_8];
-    __shared__ float sb8[KS_8*NS_8];
+    __shared__ float sa8[KS_9*MS_9];
+    __shared__ float sb8[KS_9*NS_9];
     int row_a = (tx%32)<<2, col_a = tx/32; //row_a [0,4,8,...,120,124] col_a [0,1,2,...,7]
-    int col_b = tx%NS_8, row_b = (tx>>7)<<2; //col_b [0-127] row_b [0,4]
+    int col_b = tx%NS_9, row_b = (tx>>7)<<2; //col_b [0-127] row_b [0,4]
     int lane_id = tx&31; //[0-31]
     int warp_id = tx>>5; // [0-7]
     //warp 处理 64x32(colxrow) 每个block内warp的维度是(2x4)
@@ -66,7 +68,7 @@ void mysgemm_v9_ano(int M, int N, int K, float alpha, const float* A, const floa
     int col_c = (warp_col<<6) + (col_w<<3);
     float4 Av1,Bv1,Av2,Bv2,Cv[16],Cres[16];
     memset(Cres, 0, sizeof(Cres));
-    for(int k_count = 0;k_count < K;k_count+=KS_8){
+    for(int k_count = 0;k_count < K;k_count+=KS_9){
         Av1 = *((float4*)&A(row_a,col_a));
         Bv1 = *((float4*)&B(row_b,col_b));
         ((float4*)sa8)[tx] = Av1;
@@ -77,7 +79,7 @@ void mysgemm_v9_ano(int M, int N, int K, float alpha, const float* A, const floa
         A +=(lda<<3); B+=8;
         __syncthreads();
         #pragma unroll
-        for(int inner_k = 0;inner_k < KS_8;inner_k++){
+        for(int inner_k = 0;inner_k < KS_9;inner_k++){
             vload(Av1,&sa8(row_c,inner_k));
             vload(Av2,&sa8(row_c+4,inner_k));
             vload(Bv1,&sb8(col_c,inner_k));

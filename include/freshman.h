@@ -11,7 +11,8 @@
   }\
 }
 
-
+#include <cuda_runtime.h>
+#include <mma.h>
 #include <time.h>
 #ifdef _WIN32
 #	include <windows.h>
@@ -52,6 +53,17 @@ void initialData(float* ip,int size)
   for(int i=0;i<size;i++)
   {
     ip[i]=(float)(rand()&0xffff)/100000.0f;
+    // ip[i]=2.0f;
+  }
+}
+void initialData_half(half* ip,int size)
+{
+  time_t t;
+  srand((unsigned )time(&t));
+  for(int i=0;i<size;i++)
+  {
+    float rand_float =(float)(rand()&0xffff)/100000.0f;
+    ip[i] = __float2half(rand_float);
     // ip[i]=2.0f;
   }
 }

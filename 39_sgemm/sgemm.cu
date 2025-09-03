@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <mma.h>
 #include <stdio.h>
 #include <cublas_v2.h>
 #include "freshman.h"
@@ -172,6 +173,17 @@ void test_mysgemm_v11(int M, int N, int K, float alpha, const float* A, const fl
     cudaDeviceSynchronize();
 }
 
+void test_mysgemm_v12(int M, int N, int K, float alpha, const half* A, const half* B, float beta, float* C){
+    cudaDeviceSynchronize();
+    int blockX = 128, blockY = 128;
+    // dim3 blockDim(1024);
+    dim3 blockDim(256);//x4
+    // dim3 blockDim(64);//x4
+    dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
+    mysgemm_v12<<<gridDim, blockDim>>>(M,N,K,alpha,(half*)A,(half*)B,beta,C);
+    cudaDeviceSynchronize();
+}
+
 int main(int argc,char **argv)
 {
   // set up device
@@ -181,8 +193,8 @@ int main(int argc,char **argv)
     kernel=atoi(argv[1]);
   int SIZE[24];
   for (int i=0;i<24;i++) SIZE[i]=(i+1)<<8;
-  if (kernel<0||kernel>11) {
-    printf("Please enter a valid kernel number (0-11).\n");
+  if (kernel<0||kernel>12) {
+    printf("Please enter a valid kernel number (0-12).\n");
     exit(-2);
   }
   // testThreadIdx();
@@ -191,15 +203,24 @@ int main(int argc,char **argv)
   if (kernel<=6&&kernel!=0) upper_limit=8;
   else upper_limit=(sizeof(SIZE)/sizeof(int));
   max_size=SIZE[upper_limit-1];
-  float* A_host = NULL,*B_host = NULL, *C_host = NULL,*C_from_dev = NULL,*C_from_dev_lib = NULL;
-  float* A_dev = NULL,*B_dev = NULL,*C_dev = NULL,*C_dev_lib = NULL;
+  void *A_host = NULL,*B_host = NULL;
+  float *C_host = NULL,*C_from_dev = NULL,*C_from_dev_lib = NULL;
+  void* A_dev = NULL,*B_dev = NULL;
+  float *C_dev = NULL,*C_dev_lib = NULL;
   float alpha = 1.0, beta = 0.;//two arbitary input parameters
 
   int nElem = max_size*max_size;
   int nBytes = sizeof(float)*max_size*max_size;
+  int half_nBytes = sizeof(half)*max_size*max_size;
 
-  CHECK(cudaHostAlloc((float**)&A_host,nBytes,cudaHostAllocDefault));
-  CHECK(cudaHostAlloc((float**)&B_host,nBytes,cudaHostAllocDefault));
+  if(kernel<12){
+    CHECK(cudaHostAlloc((float**)&A_host,nBytes,cudaHostAllocDefault));
+    CHECK(cudaHostAlloc((float**)&B_host,nBytes,cudaHostAllocDefault));
+  }else{
+    CHECK(cudaHostAlloc((half**)&A_host,half_nBytes,cudaHostAllocDefault));
+    CHECK(cudaHostAlloc((half**)&B_host,half_nBytes,cudaHostAllocDefault));
+  }
+
   CHECK(cudaHostAlloc((float**)&C_host,nBytes,cudaHostAllocDefault));
   CHECK(cudaHostAlloc((float**)&C_from_dev,nBytes,cudaHostAllocDefault));
   CHECK(cudaHostAlloc((float**)&C_from_dev_lib,nBytes,cudaHostAllocDefault));
@@ -209,9 +230,13 @@ int main(int argc,char **argv)
   // C_host=(float*)malloc(nBytes);
   // C_from_dev=(float*)malloc(nBytes);
   // C_from_dev_lib=(float*)malloc(nBytes);
-
-  CHECK(cudaMalloc((float**)&A_dev,nBytes));
-  CHECK(cudaMalloc((float**)&B_dev,nBytes));
+  if(kernel<12){
+    CHECK(cudaMalloc((float**)&A_dev,nBytes));
+    CHECK(cudaMalloc((float**)&B_dev,nBytes));
+  }else{
+    CHECK(cudaMalloc((half**)&A_dev,half_nBytes));
+    CHECK(cudaMalloc((half**)&B_dev,half_nBytes));
+  }
   CHECK(cudaMalloc((float**)&C_dev,nBytes));
   CHECK(cudaMalloc((float**)&C_dev_lib,nBytes));
 
@@ -221,11 +246,21 @@ int main(int argc,char **argv)
   CHECK(cudaMemset(C_dev,0,nBytes));
   CHECK(cudaMemset(C_dev_lib,0,nBytes));
 
-  initialData(A_host,nElem);
-  initialData(B_host,nElem);
+  if(kernel < 12){
+    initialData((float*)A_host,nElem);
+    initialData((float*)B_host,nElem);
+  }else{
+    initialData_half((half*)A_host,nElem);
+    initialData_half((half*)A_host,nElem);
+  }
 
-  CHECK(cudaMemcpyAsync(A_dev,A_host,nBytes,cudaMemcpyHostToDevice,0));
-  CHECK(cudaMemcpyAsync(B_dev,B_host,nBytes,cudaMemcpyHostToDevice,0));
+  if(kernel < 12){
+    CHECK(cudaMemcpyAsync(A_dev,A_host,nBytes,cudaMemcpyHostToDevice,0));
+    CHECK(cudaMemcpyAsync(B_dev,B_host,nBytes,cudaMemcpyHostToDevice,0));
+  }else{
+    CHECK(cudaMemcpyAsync(A_dev,A_host,half_nBytes,cudaMemcpyHostToDevice,0));
+    CHECK(cudaMemcpyAsync(B_dev,B_host,half_nBytes,cudaMemcpyHostToDevice,0));
+  }
   // CHECK(cudaMemcpy(A_dev,A_host,nBytes,cudaMemcpyHostToDevice));
   // CHECK(cudaMemcpy(B_dev,B_host,nBytes,cudaMemcpyHostToDevice));
 
@@ -239,16 +274,23 @@ int main(int argc,char **argv)
   printf("--------------------------------------------\n");
   
 
-  for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
-  // for(int i_count = 0;i_count < upper_limit;i_count++){
+  // for(int i_count = upper_limit-1;i_count < upper_limit;i_count++){
+  for(int i_count = 0;i_count < upper_limit;i_count++){
   // for(int i_count = 0;i_count < 1;i_count++){
     m=n=k=SIZE[i_count];
     printf("\nM=N=K=%d:\n",m);
-    //warmup cuBLAS 库在第一次调用时需要初始化内部状态（如加载内核、分配内部缓冲区等），这会带来额外的开销
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, m, B_dev, k, &beta, C_dev_lib, m);
-    cudaEventRecord(beg_lib);
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, m, B_dev, k, &beta, C_dev_lib, m);
-    cudaEventRecord(end_lib);
+    if(kernel < 12){
+      //warmup cuBLAS 库在第一次调用时需要初始化内部状态（如加载内核、分配内部缓冲区等），这会带来额外的开销
+      cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, (float*)A_dev, m, (float*)B_dev, k, &beta, C_dev_lib, m);
+      cudaEventRecord(beg_lib);
+      cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, (float*)A_dev, m, (float*)B_dev, k, &beta, C_dev_lib, m);
+      cudaEventRecord(end_lib);
+    }else{
+      cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, CUDA_R_16F, m, B_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, m);
+      cudaEventRecord(beg_lib);
+      cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, CUDA_R_16F, m, B_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, m);
+      cudaEventRecord(end_lib);
+    }
     cudaEventSynchronize(beg_lib);
     cudaEventSynchronize(end_lib);
     cudaEventElapsedTime(&elapsed_time, beg_lib, end_lib);
@@ -257,7 +299,7 @@ int main(int argc,char **argv)
     if(i_count < 0){
       //数据量低于 3*256 时，计算CPU校对结果
       double iStart=cpuSecond();
-      sgemm_CPU(m, n, k, alpha, A_host, B_host, beta, C_host);
+      sgemm_CPU(m, n, k, alpha, (float*)A_host, (float*)B_host, beta, C_host);
       double iElaps=cpuSecond()-iStart;
       printf("CPU Execution Time elapsed %f sec\n",iElaps);
     }
@@ -269,18 +311,19 @@ int main(int argc,char **argv)
     for(int n_count = 0;n_count < N;n_count++){
       switch (kernel)
       {
-        case 0: cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, m, B_dev, k, &beta, C_dev, m);break;
-        case 1: test_mysgemm_v1(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 2: test_mysgemm_v2(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 3: test_mysgemm_v3(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 4: test_mysgemm_v4(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 5: test_mysgemm_v5(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 6: test_mysgemm_v6(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 7: test_mysgemm_v7(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 8: test_mysgemm_v8(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 9: test_mysgemm_v9(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 10: test_mysgemm_v10(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
-        case 11: test_mysgemm_v11(m,n,k,alpha,A_dev,B_dev,beta,C_dev);break;
+        case 0: cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, (float*)A_dev, m, (float*)B_dev, k, &beta, C_dev, m);break;
+        case 1: test_mysgemm_v1(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 2: test_mysgemm_v2(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 3: test_mysgemm_v3(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 4: test_mysgemm_v4(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 5: test_mysgemm_v5(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 6: test_mysgemm_v6(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 7: test_mysgemm_v7(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 8: test_mysgemm_v8(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 9: test_mysgemm_v9(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 10: test_mysgemm_v10(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 11: test_mysgemm_v11(m,n,k,alpha,(float*)A_dev,(float*)B_dev,beta,C_dev);break;
+        case 12: test_mysgemm_v12(m,n,k,alpha,(half*)A_dev,(half*)B_dev,beta,C_dev);break;
         default:
           break;
       }
