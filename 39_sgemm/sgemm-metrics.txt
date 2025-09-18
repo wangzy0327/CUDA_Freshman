@@ -520,6 +520,79 @@ mysgemm_v11_ano(int, int, int, float, float const*, float const*, float, float*)
     smsp__warps_launched.sum                                                          warp                         18,432
     ---------------------------------------------------------------------- --------------- ------------------------------
 
+  mysgemm_v12(int, int, int, float, __half const*, __half const*, float, float*), 2025-Sep-04 04:06:53, Context 1, Stream 7
+    Section: Command line profiler metrics
+    ---------------------------------------------------------------------- --------------- ------------------------------
+    dram__bytes_read.sum                                                             Gbyte                           1.64
+    dram__bytes_write.sum                                                            Mbyte                          18.53
+    l1tex__t_set_accesses.sum                                                                                 340,918,272
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.max                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.min                                                            0
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum                                                            0
+    smsp__inst_executed_pipe_tensor.avg                                               inst                     353,894.40
+    smsp__inst_executed_pipe_tensor.max                                               inst                        393,216
+    smsp__inst_executed_pipe_tensor.min                                               inst                        319,488
+    smsp__inst_executed_pipe_tensor.sum                                               inst                    113,246,208
+    smsp__warps_active.avg                                                                                  95,362,887.61
+    smsp__warps_active.max                                                                                    109,923,551
+    smsp__warps_active.min                                                                                     86,447,474
+    smsp__warps_active.sum                                                                                 30,516,124,035
+    smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active                        %                           2.84
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct                        %                          66.61
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct                        %                             50
+    smsp__thread_inst_executed_per_inst_executed.ratio                                                                 32
+    smsp__throughput.avg.pct_of_peak_sustained_elapsed                                                            (!) n/a
+    smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct                          %                           0.35
+    smsp__warp_issue_stalled_imc_miss_per_warp_active.pct                                %                           0.01
+    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                          63.92
+    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                           0.10
+    smsp__warp_issue_stalled_no_instructions_per_warp_active.pct                                                  (!) n/a
+    smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct                            %                              0
+    smsp__warps_launched.sum                                                          warp                         18,432
+    ---------------------------------------------------------------------- --------------- ------------------------------
+
+mysgemm_v12_ano(int, int, int, float, __half const*, __half const*, float, float*), 2025-Sep-04 04:08:33, Context 1, Stream 7
+    Section: Command line profiler metrics
+    ---------------------------------------------------------------------- --------------- ------------------------------
+    dram__bytes_read.sum                                                             Gbyte                          26.96
+    dram__bytes_write.sum                                                            Gbyte                          25.22
+    l1tex__t_set_accesses.sum                                                                               2,066,743,296
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.avg                                                 9,648,701.54
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.max                                                   11,103,963
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.min                                                    9,020,427
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum                                                  771,896,123
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.avg                                                   822,100.78
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.max                                                      957,766
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.min                                                      762,754
+    l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum                                                   65,768,062
+    smsp__inst_executed_pipe_tensor.avg                                               inst                   1,238,630.40
+    smsp__inst_executed_pipe_tensor.max                                               inst                      1,437,696
+    smsp__inst_executed_pipe_tensor.min                                               inst                      1,142,784
+    smsp__inst_executed_pipe_tensor.sum                                               inst                    396,361,728
+    smsp__warps_active.avg                                                                                 767,048,615.28
+    smsp__warps_active.max                                                                                    795,876,487
+    smsp__warps_active.min                                                                                    752,829,089
+    smsp__warps_active.sum                                                                                245,455,556,890
+    smsp__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_active                        %                           1.62
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_ld.pct                        %                          47.37
+    smsp__sass_average_data_bytes_per_sector_mem_global_op_st.pct                        %                             50
+    smsp__thread_inst_executed_per_inst_executed.ratio                                                                 32
+    smsp__throughput.avg.pct_of_peak_sustained_elapsed                                                            (!) n/a
+    smsp__warp_issue_stalled_dispatch_stall_per_warp_active.pct                          %                           0.08
+    smsp__warp_issue_stalled_imc_miss_per_warp_active.pct                                %                           0.00
+    smsp__warp_issue_stalled_long_scoreboard_per_warp_active.pct                         %                          34.72
+    smsp__warp_issue_stalled_mio_throttle_per_warp_active.pct                            %                           1.04
+    smsp__warp_issue_stalled_no_instructions_per_warp_active.pct                                                  (!) n/a
+    smsp__warp_issue_stalled_tex_throttle_per_warp_active.pct                            %                           0.00
+    smsp__warps_launched.sum                                                          warp                         18,432
+    ---------------------------------------------------------------------- --------------- ------------------------------
+
+
 指标	         mysgemm_v5_ano	   mysgemm_v5_ano2	mysgemm_v5_ano2_pro  mysgemm_v7
 共享内存加载冲突（sum）	590,811	        106,716	        121,048              132,758
 共享内存存储冲突（sum）	58,720,256	   195,623,348	       0                  0

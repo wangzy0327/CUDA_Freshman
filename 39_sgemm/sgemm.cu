@@ -28,6 +28,25 @@ void sgemm_CPU(int M, int N, int K, float alpha, const float * MatA, const float
     }
 }
 
+void sgemm_CPU_half(int M, int N, int K, float alpha, const half * MatA, const half * MatB, float beta, float * MatC)
+{   
+    //列主序
+    for(int i = 0;i < M;i++){
+        for(int j = 0;j < N;j++){
+            const half* A = MatA + i;
+            const half* B = MatB + j*K;
+            // float* C = MatC + j*M;
+            float sum = 0.0f;
+            for(int k = 0;k < K;k++){
+                // sum += MatA[i+k*M] * MatB[k+j*K];
+                sum += (float)A[k*M] * (float)B[k];
+                // C[i] += A[k*M] * B[k];
+            }
+            MatC[i+j*M] = alpha * sum + beta * MatC[i+j*M];
+        }
+    }
+}
+
 void testThreadIdx(){
   int tx_size = 256;
   for(int tx = 0;tx < tx_size;tx++){
@@ -175,12 +194,17 @@ void test_mysgemm_v11(int M, int N, int K, float alpha, const float* A, const fl
 
 void test_mysgemm_v12(int M, int N, int K, float alpha, const half* A, const half* B, float beta, float* C){
     cudaDeviceSynchronize();
-    int blockX = 128, blockY = 128;
+    //mysgemm_v12_ano2 每一个block处理 BMxBN 大小的块 BM=128,BN=256 ,行主序
+    //BM为纵坐标，BN为横坐标，N为第一维，M为第二维
+    int blockX = 256, blockY = 128;
     // dim3 blockDim(1024);
     dim3 blockDim(256);//x4
     // dim3 blockDim(64);//x4
-    dim3 gridDim(CEIL_DIV(M,blockX),CEIL_DIV(N,blockY));
-    mysgemm_v12<<<gridDim, blockDim>>>(M,N,K,alpha,(half*)A,(half*)B,beta,C);
+    //dim3 blockDim(blockIdx.x,blockIdx.y,blockIdx.z)
+    dim3 gridDim(CEIL_DIV(N,blockX),CEIL_DIV(M,blockY));
+    // mysgemm_v12<<<gridDim, blockDim>>>(M,N,K,alpha,(half*)A,(half*)B,beta,C);
+    // mysgemm_v12_ano<<<gridDim, blockDim>>>(M,N,K,alpha,(half*)A,(half*)B,beta,C);
+    mysgemm_v12_ano2<<<gridDim, blockDim>>>(M,N,K,alpha,(half*)A,(half*)B,beta,C);
     cudaDeviceSynchronize();
 }
 
@@ -286,9 +310,11 @@ int main(int argc,char **argv)
       cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, (float*)A_dev, m, (float*)B_dev, k, &beta, C_dev_lib, m);
       cudaEventRecord(end_lib);
     }else{
-      cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, CUDA_R_16F, m, B_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, m);
+      // cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, CUDA_R_16F, m, B_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, m); // mxk,kxn = mxn
+      cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, B_dev, CUDA_R_16F, n, A_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, n); // nxk,kxm =nxm
       cudaEventRecord(beg_lib);
-      cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, CUDA_R_16F, m, B_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, m);
+      // cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, A_dev, CUDA_R_16F, m, B_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, m);
+      cublasSgemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, B_dev, CUDA_R_16F, n, A_dev, CUDA_R_16F, k, &beta, C_dev_lib, CUDA_R_32F, n);
       cudaEventRecord(end_lib);
     }
     cudaEventSynchronize(beg_lib);
@@ -296,10 +322,15 @@ int main(int argc,char **argv)
     cudaEventElapsedTime(&elapsed_time, beg_lib, end_lib);
     elapsed_time /= 1000.;
     printf("GPU cublas Average elasped time: %f second, performance: %f GFLOPS.\n", elapsed_time,2.*1e-9*m*n*k/elapsed_time);
-    if(i_count < 0){
+    if(i_count < 3){
       //数据量低于 3*256 时，计算CPU校对结果
       double iStart=cpuSecond();
-      sgemm_CPU(m, n, k, alpha, (float*)A_host, (float*)B_host, beta, C_host);
+      if(kernel < 12){
+        sgemm_CPU(m, n, k, alpha, (float*)A_host, (float*)B_host, beta, C_host);
+      }else{
+        sgemm_CPU_half(m, n, k, alpha, (half*)A_host, (half*)B_host, beta, C_host);
+      }
+
       double iElaps=cpuSecond()-iStart;
       printf("CPU Execution Time elapsed %f sec\n",iElaps);
     }

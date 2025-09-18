@@ -4,6 +4,7 @@ Project(CUDA_Freshman CXX C CUDA)
 # set(CMAKE_CUDA_FLAGS "-arch=compute_35 -code=compute_35,sm_70  -O3")
 set(CMAKE_CUDA_ARCHITECTURES "70;80")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
+# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G")
 # -g -G 启用了调试信息，严重影响性能(通常降低10倍以上，测试性能时建议关掉)
 # set(CMAKE_CUDA_FLAGS "-arch=compute_35 -code=compute_35,sm_70 -g -G  -O3")
 # 查找 CUDA 工具包，包括 cuBLAS
