@@ -121,6 +121,9 @@ void mysgemm_v12_ano(int M, int N, int K, float alpha, const half* A, const half
 // M=N=K=6144:
 // GPU cublas Average elasped time: 0.004692 second, performance: 98870.572320 GFLOPS. cublasSgemmEx 使用TensorCore mma half,half,float
 // GPU mySgemm Average elasped time: 0.010297 second, performance: 45048.741998 GFLOPS.
+// A100 shared memory per block 48k bytes registers available per block 65536
+// V100 shared memory per block 48k bytes register available per block 65536
+
 __global__  __launch_bounds__(256)
 void mysgemm_v12_ano2(int M, int N, int K, float alpha, const half* a, const half* b, float beta, float* c) {
 
@@ -131,6 +134,12 @@ void mysgemm_v12_ano2(int M, int N, int K, float alpha, const half* a, const hal
     int bx = blockIdx.x;
     int by = blockIdx.y;
     int tid = threadIdx.x;
+    //per block 256 threads. per block 8 warps
+    //one block handle 128x32x256(BMxBKxBN) . one warp handle 64x32x64(wMxwKxwN)
+    //share memory (128x32+256x32)x2(half) = 24k . one warp 24k/8 = 3k
+    //2 block can reside on a multiprocesser
+    // a fragment can handle (16x16x16). one warp needs(64x32x64) 4x4 acculator,4x2 matrix_a,4x2 matrix_b
+    //256 threads handle 128x32|256x32 share memory.vectorized load/store (float4 = 8 half).one thread handle 2 vec-half | 4 vec-half gloadvec-> share memory. Details in load-share-mem-half.png
     int wid = tid >> 5;
 
     const int APAD = 8;
@@ -151,13 +160,13 @@ void mysgemm_v12_ano2(int M, int N, int K, float alpha, const half* a, const hal
         }
     }
 
-    int load_a_smem_m = (tid >> 2) << 1;
-    int load_a_smem_k = (tid &  3) << 3;
-    int load_b_smem_k = (tid >> 5) << 2;
-    int load_b_smem_n = (tid & 31) << 3;
+    int load_a_smem_m = (tid >> 2) << 1; // 共享内存行索引(步长2) [0,2,...,126] 1...128 详细请见 load_share_mem_half.png
+    int load_a_smem_k = (tid &  3) << 3; // 共享内存列索引(步长8) [0,8,16,24]  1...32
+    int load_b_smem_k = (tid >> 5) << 2; // 共享内存行索引(步长4) [0,4,8,...,28] 1...32
+    int load_b_smem_n = (tid & 31) << 3; // 共享内存列索引(步长8) [0,8,...,248] 1...256
 
-    int load_a_gmem_m = by * BM + load_a_smem_m;
-    int load_b_gmem_n = bx * BN + load_b_smem_n;
+    int load_a_gmem_m = by * BM + load_a_smem_m; //全局+局部
+    int load_b_gmem_n = bx * BN + load_b_smem_n; //全局+局部
 
     int load_a_gmem_addr = OFFSET(load_a_gmem_m, load_a_smem_k, K);
     int load_b_gmem_addr = OFFSET(load_b_smem_k, load_b_gmem_n, N);
@@ -166,9 +175,34 @@ void mysgemm_v12_ano2(int M, int N, int K, float alpha, const half* a, const hal
     int comp_c_frag_n = wid >> 1;
 
     for (int bk = 0; bk < K / BK; bk++) {
+        /*
+            s_a[128行×32列]加载示意图：
+            行：0-1 → 由tid=0~3负责（4线程）
+            tid=0：列0-7（8元素）
+            tid=1：列8-15（8元素）
+            tid=2：列16-23（8元素）
+            tid=3：列24-31（8元素）
+            行：2-3 → 由tid=4~7负责
+            ...
+            （以此类推，覆盖128行）
+        */
+        //float4 加载效率：1 次 float4 操作加载 8 个 half（16 字节），比逐元素加载提升 8 倍带宽利用率
         FLOAT4(s_a[load_a_smem_m    ][load_a_smem_k]) = CONST_FLOAT4(a[load_a_gmem_addr        ]);
+        // 地址偏移：A矩阵行间距为K（每行K元素），故下一行地址+K
         FLOAT4(s_a[load_a_smem_m + 1][load_a_smem_k]) = CONST_FLOAT4(a[load_a_gmem_addr +     K]);
+        /*
+            s_b[32行×256列]加载示意图：
+            行：0-3 → 由warp0（tid=0~31）负责
+            tid=0：列0-7（8元素）
+            tid=1：列8-15（8元素）
+            ...
+            tid=31：列248-255（8元素）
+            行：4-7 → 由warp1（tid=32~63）负责
+            ...
+            （以此类推，覆盖32行）
+        */        
         FLOAT4(s_b[load_b_smem_k    ][load_b_smem_n]) = CONST_FLOAT4(b[load_b_gmem_addr        ]);
+        // 地址偏移：B矩阵行间距为N（每行N元素），故下一行地址+N
         FLOAT4(s_b[load_b_smem_k + 1][load_b_smem_n]) = CONST_FLOAT4(b[load_b_gmem_addr +     N]);
         FLOAT4(s_b[load_b_smem_k + 2][load_b_smem_n]) = CONST_FLOAT4(b[load_b_gmem_addr + 2 * N]);
         FLOAT4(s_b[load_b_smem_k + 3][load_b_smem_n]) = CONST_FLOAT4(b[load_b_gmem_addr + 3 * N]);
@@ -178,6 +212,12 @@ void mysgemm_v12_ano2(int M, int N, int K, float alpha, const half* a, const hal
 
         __syncthreads();
 
+        /*
+            Fragment 加载图解 详细请见 share_mem_fragment.png
+            sa 在warp中(4x2)需要依次沿着BM方向加载进 fragment (序列) frag_a[2][4]
+            sb 在warp中(2x4)需要依次沿着BN方向加载进 fragment (序列) frag_b[2][4]
+
+        */
         wmma::load_matrix_sync(frag_a[0][0], &s_a[comp_c_frag_m * 64     ][ 0], BK + APAD);
         wmma::load_matrix_sync(frag_a[0][1], &s_a[comp_c_frag_m * 64 + 16][ 0], BK + APAD);
         wmma::load_matrix_sync(frag_a[0][2], &s_a[comp_c_frag_m * 64 + 32][ 0], BK + APAD);
@@ -196,6 +236,11 @@ void mysgemm_v12_ano2(int M, int N, int K, float alpha, const half* a, const hal
         wmma::load_matrix_sync(frag_b[1][2], &s_b[16][comp_c_frag_n * 64 + 32], BN + BPAD);
         wmma::load_matrix_sync(frag_b[1][3], &s_b[16][comp_c_frag_n * 64 + 48], BN + BPAD);
 
+        /*
+        frag_a[0][0...3] 依次跟 frag[0][0...3] 进行MMA操作， k维度需要保持一致
+        frag_a[1][0...3] 依次跟 frag[1][0...3]
+        ... 依次类推
+        */
         #pragma unroll
         for (int i = 0; i < 4; i++) {
             #pragma unroll

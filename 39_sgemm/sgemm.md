@@ -96,3 +96,10 @@ Hide loading delay timing [diagram](../imgs/load_compute_overlap.png).If vload a
 [source code](../include/kernel11.cuh)
 
 We introduce the double buffer strategy for the shared memory buffers to cancel an unnecessary syncthreads inside the loop body, pushing the performance to the limit.
+
+## Kernel 12 ( Ms,Ns,Ks = 128,256,32 wmma,half,half,float)
+
+[source code](../include/kernel12.cuh)
+
+
+Declare fragments for the three matrices matrix_a, matrix_b, and accumulator (each fragment corresponds to one or more registers across all threads in a warp). Use load_matrix_sync and store_matrix_sync to write the matrices to registers or write them back to shared memory or global memory. Use mma_sync to call Tensor Cores to perform matrix multiplication. share memory load half [diagram](../imgs/load_share_mem_half.png). load share memory to fragments [diagram](../imgs/share_mem_fragment.png).
